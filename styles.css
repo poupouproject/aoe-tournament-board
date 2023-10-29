@@ -1,0 +1,150 @@
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%; /* cela s'assure que le corps ne dépasse pas la hauteur de la fenêtre */
+    overflow-x: hidden; /* cela empêche le défilement horizontal */
+}
+
+/* Styles généraux pour l'alignement et l'arrière-plan */
+body {
+    background-image: url('images/AOE2Definitiveedition.jpg');
+    background-attachment: fixed; /* cela empêche l'image de fond de défiler avec la page */
+    background-size: cover;
+    background-position: center;
+    font-family: 'Arial', sans-serif;
+}
+
+header {
+    padding: 20px;
+    background-color: rgba(100, 72, 92, 0.7); /* La couleur #64485C avec une opacité de 70% */
+    color: #F8F0DF;
+    border-bottom: 3px solid #4e4b4b;
+    text-align: center; /* Assurez-vous que le titre est centré dans l'en-tête */
+}
+
+#tournamentTitle {
+    font-family: 'Cinzel', serif; /* si vous utilisez une police spéciale */
+    font-size: 2.5em; /* une taille de police plus grande pour l'en-tête */
+    margin: 0; /* enlever le margin par défaut pour les éléments h1 */
+    padding: 0.25em 0; /* un peu de padding pour l'espace */
+}
+
+/* Nouveau style pour le conteneur principal */
+#mainContent {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: calc(100vh - 60px); /* hauteur de la vue moins la hauteur de l'en-tête */
+    text-align: center;
+}
+
+/* Styles pour le conteneur du compte à rebours */
+#app {
+    background: rgba(255, 255, 255, 0.5); /* Blanc translucide */
+    border-radius: 25px; /* Bords arrondis */
+    padding: 20px 50px; /* Espace intérieur autour du texte */
+    text-align: center; /* Centrer le texte à l'intérieur */
+    max-width: 600px; /* Une largeur maximale peut aider à maintenir de petits contenus bien formés */
+    width: 100%; /* Utiliser la pleine largeur jusqu'à la largeur maximale */
+}
+
+/* Styles pour le texte du compte à rebours */
+#timer {
+    font-size: 200px; /* Grande taille de police pour le compte à rebours */
+    color: #333; /* Couleur du texte foncé pour contraster avec le fond clair */
+}
+
+/* Styles pour les boutons, si nécessaire */
+button {
+    padding: 10px 20px; /* Espace intérieur pour les boutons */
+    margin-top: 20px; /* Espace au-dessus des boutons */
+    font-size: 1em; /* Taille de la police pour les boutons */
+    border: none; /* Enlever les bordures par défaut */
+    border-radius: 5px; /* Bords légèrement arrondis pour les boutons */
+    cursor: pointer; /* Style de curseur de pointeur pour indiquer la cliquabilité */
+}
+
+button:disabled {
+    background: #ccc; /* Couleur de fond pour les boutons désactivés */
+    color: #999; /* Couleur du texte pour les boutons désactivés */
+}
+
+#scoreboard {
+    font-family: 'Cinzel', serif; /* Police thématique */
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 300px; /* ou la largeur que vous préférez pour votre tableau */
+    background: url('images/parchment-texture.jpg'); /* Image de fond thématique */
+    border-radius: 25px;
+    border: 3px solid #4e4b4b; /* Une bordure pour le tableau, peut-être quelque chose qui ressemble à de la pierre ou du bois */
+    padding: 20px;
+    color: #2e2e2e; /* Couleur de texte qui contraste bien avec votre arrière-plan */
+    font-weight: bold;
+    z-index: 1; /* ou une valeur inférieure à celle des autres éléments avec lesquels il se superpose */
+}
+
+#scoreboard table {
+    width: 100%;
+    border-collapse: collapse; /* pour des lignes/bords solides */
+}
+
+#scoreboard th, #scoreboard td {
+    padding: 10px; /* espace autour du texte dans les cellules */
+    text-align: left; /* aligner le texte à gauche */
+    border-bottom: 1px solid #4e4b4b; /* Ligne de séparation entre les rangées */
+}
+
+#scoreboard th {
+    background-color: #9A8B7A; /* Couleur de fond pour les en-têtes, quelque chose qui s'harmonise avec le thème */
+    color: #ffffff; /* Couleur du texte pour les en-têtes */
+}
+#matches {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 300px; /* ou la largeur que vous préférez pour votre tableau */
+    background: rgba(255, 255, 255, 0.5); /* pour une cohérence avec votre design, un fond blanc translucide */
+    border-radius: 25px;
+    border: 3px solid #4e4b4b; /* Une bordure pour le tableau */
+    padding: 20px;
+    color: #333; /* Couleur de texte foncé pour contraster avec le fond clair */
+}
+
+#matches table {
+    width: 100%;
+    border-collapse: collapse; /* pour des lignes/bords solides */
+}
+
+#matches th, #matches td {
+    padding: 10px; /* espace autour du texte dans les cellules */
+    text-align: left; /* aligner le texte à gauche */
+}
+
+#matches th {
+    background-color: #9A8B7A; /* Couleur de fond pour les en-têtes, quelque chose qui s'harmonise avec le thème */
+    color: #ffffff; /* Couleur du texte pour les en-têtes */
+}
+
+/* Style pour les statuts 'Joué' */
+.status-played {
+    color: white; /* couleur du texte */
+    background-color: green; /* couleur de fond lorsque la partie est jouée */
+    border: none; /* retirer la bordure standard */
+    border-radius: 5px; /* coins arrondis */
+    padding: 5px 10px; /* espace intérieur */
+    cursor: default; /* le curseur par défaut, car ce n'est pas un bouton cliquable */
+}
+
+/* Style pour les statuts 'En attente' */
+.status-pending {
+    color: white; /* couleur du texte */
+    background-color: grey; /* couleur de fond lorsque la partie est en attente */
+    border: none; /* retirer la bordure standard */
+    border-radius: 5px; /* coins arrondis */
+    padding: 5px 10px; /* espace intérieur */
+    cursor: default; /* le curseur par défaut, car ce n'est pas un bouton cliquable */
+}
