@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compte à rebours Age of Empires II</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css"> <!-- Lien vers votre fichier CSS externe -->
+</head>
+
+<body>
+    <!-- Nouvelle section d'en-tête pour le titre du tournoi -->
+    <header>
+        <h1 id="tournamentTitle">Couronnement Impérial</h1>
+    </header>
+    <!-- tableau des matchs -->
+    <div id="matches">
+        <h2>Parties</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Partie</th>
+                    <th>Statut</th>
+                    <th>Équipe gagnante</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Les lignes du tableau seront remplies dynamiquement -->
+            </tbody>
+        </table>
+    </div>
+    <!-- Conteneur principal pour le contenu centré -->
+    <div id="mainContent">
+        <div id="app">
+            <!-- Contenu pour le compte à rebours et le caucus -->
+            <audio id="alarmSound" src="audio/campana_aoe.mp3" preload="auto"></audio>
+            <div id="timer"></div>
+            <button id="startButton">Démarrer le compte à rebours</button>
+            <button id="pauseButton">Pause</button>
+        </div>
+    </div>
+    <!-- Nouveau tableau pour les scores des participants -->
+    <div id="scoreboard">
+        <table>
+            <thead>
+                <tr>
+                    <th>Participant</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Les lignes du tableau seront remplies dynamiquement -->
+            </tbody>
+        </table>
+    </div>
+
+    <script src="script.js"></script> <!-- Lien vers votre fichier JavaScript externe -->
+</body>
+
+</html>
