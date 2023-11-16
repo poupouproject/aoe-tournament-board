@@ -1,0 +1,107 @@
+{
+  "gameInfo": {
+    "gameType": "Random Map",
+    "map": "Arabia",
+    "duration": "01:05:32"
+  },
+  "teams": [
+    {
+      "teamName": "Équipe Rouge",
+      "players": [
+        {
+          "name": "Joueur1",
+          "civilization": "Franks",
+          "score": 4500,
+          "military": {
+            "unitsKilled": 50,
+            "unitsLost": 30,
+            "buildingsRazed": 2,
+            "hitPointsKilled": 1200
+          },
+          "economy": {
+            "foodCollected": 10000,
+            "woodCollected": 8000,
+            "stoneCollected": 2000,
+            "goldCollected": 4000,
+            "tributeSent": 500,
+            "tributeReceived": 200,
+            "tradeProfit": 300,
+            "relicGold": 1000
+          }
+        },
+        {
+          "name": "Joueur2",
+          "civilization": "Vikings",
+          "score": 4300,
+          "military": {
+            "unitsKilled": 45,
+            "unitsLost": 25,
+            "buildingsRazed": 3,
+            "hitPointsKilled": 1100
+          },
+          "economy": {
+            "foodCollected": 9500,
+            "woodCollected": 7500,
+            "stoneCollected": 1500,
+            "goldCollected": 3500,
+            "tributeSent": 400,
+            "tributeReceived": 300,
+            "tradeProfit": 250,
+            "relicGold": 800
+          }
+        }
+      ]
+    },
+    {
+      "teamName": "Équipe Bleue",
+      "players": [
+        {
+          "name": "Joueur3",
+          "civilization": "Britons",
+          "score": 4200,
+          "military": {
+            "unitsKilled": 40,
+            "unitsLost": 35,
+            "buildingsRazed": 1,
+            "hitPointsKilled": 1000
+          },
+          "economy": {
+            "foodCollected": 9000,
+            "woodCollected": 7000,
+            "stoneCollected": 1000,
+            "goldCollected": 3000,
+            "tributeSent": 300,
+            "tributeReceived": 400,
+            "tradeProfit": 200,
+            "relicGold": 600
+          }
+        },
+        {
+          "name": "Joueur4",
+          "civilization": "Byzantines",
+          "score": 4000,
+          "military": {
+            "unitsKilled": 35,
+            "unitsLost": 40,
+            "buildingsRazed": 0,
+            "hitPointsKilled": 900
+          },
+          "economy": {
+            "foodCollected": 8500,
+            "woodCollected": 6500,
+            "stoneCollected": 500,
+            "goldCollected": 2500,
+            "tributeSent": 200,
+            "tributeReceived": 500,
+            "tradeProfit": 150,
+            "relicGold": 400
+          }
+        }
+      ]
+    }
+  ],
+  "victory": {
+    "team": "Équipe Rouge",
+    "winningPlayers": ["Joueur1", "Joueur2"]
+  }
+}

@@ -165,18 +165,25 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
   // Lorsque l'utilisateur clique sur une partie, ouvrez la fenêtre modale et affichez les résultats de la partie
-  function onGameClick(partieNumber) {
-    loadGameData(partieNumber); // Cette fonction charge les données de la partie (comme décrit dans votre question précédente)
-
-    // Trouvez la fenêtre modale et affichez-la
-    var modal = document.getElementById("gameResultsModal");
-    modal.style.display = "block";
-  }
+  function loadGameData(partieNumber) {
+    // Fetch the game data from the corresponding JSON file
+    fetch(`saves/partie${partieNumber}.json`)
+        .then(response => response.json())
+        .then(gameData => {
+            // Update the game statistics using the fetched data
+            updateGameStats(gameData);
+        })
+        .catch(error => {
+            console.error("Error fetching game data:", error);
+        });
+}
 
   // Lorsque l'utilisateur clique sur le bouton de fermeture (x), fermez la fenêtre modale
   document.querySelector(".close").addEventListener("click", function () {
     var modal = document.getElementById("gameResultsModal");
+    document.getElementById('gameResultsModal').style.display = 'none';
     modal.style.display = "none";
+    
   });
 
   // Si l'utilisateur clique n'importe où en dehors de la fenêtre modale, fermez-la
@@ -190,6 +197,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function updateGameStats(gameData) {
     // Sélectionnez l'élément où vous souhaitez afficher les résultats
     var resultsDiv = document.getElementById('gameResults');
+    document.getElementById('gameResultsModal').style.display = 'block';
 
     // Créez un tableau pour afficher les statistiques
     var table = document.createElement('table');
@@ -241,17 +249,22 @@ document.addEventListener("DOMContentLoaded", function () {
     // Ajoutez le tableau à l'élément de résultats
     resultsDiv.innerHTML = ''; // Effacez les anciens résultats
     resultsDiv.appendChild(table);
+
 }
 
 
-  document.querySelectorAll(".game-link").forEach(function (link, index) {
-    link.addEventListener("click", function () {
-      // `index + 1` suppose que vos parties sont numérotées à partir de 1
-      // Adaptez ceci en fonction de la façon dont vous avez structuré vos données et vos éléments HTML
-      loadGameData(index + 1);
+// Ajout de gestionnaires d'événements à chaque élément de jeu
+document.querySelectorAll('.game-link').forEach(function(gameLink) {
+    gameLink.addEventListener('click', function(event) {
+        event.preventDefault();
+        const partieNumber = event.target.getAttribute('data-partie-number');
+        onGameClick(partieNumber);
     });
-  });
+});
 
+function onGameClick(partieNumber) {
+    loadGameData(partieNumber);
+}
   
   
   // Initialiser le tableau au chargement de la page
