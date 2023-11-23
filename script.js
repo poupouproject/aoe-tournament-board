@@ -1,10 +1,14 @@
 // Fichier : script.js
 document.addEventListener("DOMContentLoaded", function () {
+  var stopwatchButton = document.getElementById("stopwatchButton");
   var timerDisplay = document.getElementById("timer");
   var startButton = document.getElementById("startButton");
   var pauseButton = document.getElementById("pauseButton"); // Nouveau bouton de pause
   var alarmSound = document.getElementById("alarmSound");
 
+  var stopwatch;
+  var stopwatchTime = 0;
+  var stopwatchRunning = false;
   var isMainRound = true;
   var isPaused = false; // Un indicateur pour savoir si le compte à rebours est en pause
   var countdown; // Déplacer la variable countdown ici pour qu'elle soit accessible globalement dans la fonction
@@ -19,10 +23,20 @@ document.addEventListener("DOMContentLoaded", function () {
     var minutes = parseInt(initialDuration / 60, 10);
     var seconds = parseInt(initialDuration % 60, 10);
     updateTimerDisplay(minutes, seconds);
+  
+    // Gestion de la réinitialisation du chronomètre
+    if (stopwatchRunning) {
+      clearInterval(stopwatch);
+      stopwatchTime = 0;
+      stopwatchRunning = false;
+      stopwatchButton.textContent = "Démarrer le chronomètre";
+      resetStopwatchButton.style.display = "none"; // Cacher le bouton de réinitialisation
+    }
   }
+  
 
   startButton.addEventListener("click", function () {
-    if (!timerStarted) {
+    if (!timerStarted || !stopwatchRunning) {
       // Si le compte à rebours n'a pas encore commencé, commencez-le
       timerStarted = true;
       startButton.textContent = "Réinitialiser"; // Changez le texte du bouton
@@ -40,6 +54,32 @@ document.addEventListener("DOMContentLoaded", function () {
     seconds = seconds < 10 ? "0" + seconds : seconds;
     timerDisplay.textContent = minutes + ":" + seconds;
   }
+  // Fonction pour mettre à jour l'affichage du chronomètre
+  function updateStopwatchDisplay() {
+    var minutes = parseInt(stopwatchTime / 60, 10);
+    var seconds = parseInt(stopwatchTime % 60, 10);
+    minutes = minutes < 10 ? "0" + minutes : minutes;
+    seconds = seconds < 10 ? "0" + seconds : seconds;
+    timerDisplay.textContent = minutes + ":" + seconds;
+  }
+
+  // Fonction pour démarrer ou arrêter le chronomètre
+  stopwatchButton.addEventListener("click", function () {
+    if (!stopwatchRunning) {
+      stopwatch = setInterval(function () {
+        stopwatchTime++;
+        updateStopwatchDisplay();
+      }, 1000);
+      stopwatchButton.textContent = "Arrêter le chronomètre";
+      stopwatchRunning = true;
+      resetStopwatchButton.style.display = "block"; // Afficher le bouton de réinitialisation
+    } else {
+      clearInterval(stopwatch);
+      stopwatchButton.textContent = "Démarrer le chronomètre";
+      stopwatchRunning = false;
+      resetStopwatchButton.style.display = "none"; // Cacher le bouton de réinitialisation
+    }
+  });
 
   function startCountdown(duration, onCompletion) {
     var timer = duration,
@@ -84,15 +124,87 @@ document.addEventListener("DOMContentLoaded", function () {
   function updateScoreboard() {
     var participants = [
       // Remplacez ceci par vos données réelles, peut-être provenant d'une source externe
-      { name: "YellowWait", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
-      { name: "Fajitas", score: 0 , stars: 0, match:0, kill:0, lost:0, building:0 },
-      { name: "Jimbo", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
-      { name: "épatantepatate", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
-      { name: "Mayoche", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
-      { name: "Capitaine Chat", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
-      { name: "ValorousCat", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
-      { name: "Ben", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
-      { name: "Pelletos", score: 0, stars: 0 , match:0, kill:0, lost:0, building:0 },
+      {
+        name: "YellowWait",
+        score: 0,
+        stars: 0,
+        match: 0,
+        kill: 0,
+        lost: 0,
+        building: 0,
+      },
+      {
+        name: "Fajitas",
+        score: 0,
+        stars: 0,
+        match: 0,
+        kill: 0,
+        lost: 0,
+        building: 0,
+      },
+      {
+        name: "Jimbo",
+        score: 0,
+        stars: 0,
+        match: 0,
+        kill: 0,
+        lost: 0,
+        building: 0,
+      },
+      {
+        name: "épatantepatate",
+        score: 0,
+        stars: 0,
+        match: 0,
+        kill: 0,
+        lost: 0,
+        building: 0,
+      },
+      {
+        name: "Mayoche",
+        score: 0,
+        stars: 0,
+        match: 0,
+        kill: 0,
+        lost: 0,
+        building: 0,
+      },
+      {
+        name: "Capitaine Chat",
+        score: 0,
+        stars: 0,
+        match: 0,
+        kill: 0,
+        lost: 0,
+        building: 0,
+      },
+      {
+        name: "ValorousCat",
+        score: 0,
+        stars: 0,
+        match: 0,
+        kill: 0,
+        lost: 0,
+        building: 0,
+      },
+      {
+        name: "Ben",
+        score: 0,
+        stars: 0,
+        match: 0,
+        kill: 0,
+        lost: 0,
+        building: 0,
+      },
+      {
+        name: "Pelletos",
+        score: 0,
+        stars: 0,
+        match: 0,
+        kill: 0,
+        lost: 0,
+        building: 0,
+      },
     ];
 
     // Trier les participants par score de manière décroissante
@@ -282,7 +394,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
-/*   function onGameClick(partieNumber) {
+  /*   function onGameClick(partieNumber) {
     loadGameData(partieNumber);
   } */
 
