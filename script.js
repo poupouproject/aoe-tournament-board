@@ -84,15 +84,15 @@ document.addEventListener("DOMContentLoaded", function () {
   function updateScoreboard() {
     var participants = [
       // Remplacez ceci par vos données réelles, peut-être provenant d'une source externe
-      { name: "YellowWait", score: 0 },
-      { name: "Fajitas", score: 0 },
-      { name: "Jimbo", score: 0 },
-      { name: "épatantepatate", score: 0 },
-      { name: "Mayoche", score: 0 },
-      { name: "Capitaine Chat", score: 0 },
-      { name: "ValorousCat", score: 0 },
-      { name: "Ben", score: 0 },
-      { name: "Pelletos", score: 0 },
+      { name: "YellowWait", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
+      { name: "Fajitas", score: 0 , stars: 0, match:0, kill:0, lost:0, building:0 },
+      { name: "Jimbo", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
+      { name: "épatantepatate", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
+      { name: "Mayoche", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
+      { name: "Capitaine Chat", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
+      { name: "ValorousCat", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
+      { name: "Ben", score: 0, stars: 0, match:0, kill:0, lost:0, building:0 },
+      { name: "Pelletos", score: 0, stars: 0 , match:0, kill:0, lost:0, building:0 },
     ];
 
     // Trier les participants par score de manière décroissante
@@ -108,22 +108,37 @@ document.addEventListener("DOMContentLoaded", function () {
       var row = document.createElement("tr");
       var nameCell = document.createElement("td");
       var scoreCell = document.createElement("td");
+      var starsCell = document.createElement("td");
+      var matchCell = document.createElement("td");
+      var killCell = document.createElement("td");
+      var lostCell = document.createElement("td");
+      var buildingCell = document.createElement("td");
 
       nameCell.textContent = participant.name;
       scoreCell.textContent = participant.score;
+      starsCell.textContent = participant.stars;
+      matchCell.textContent = participant.match;
+      killCell.textContent = participant.kill;
+      lostCell.textContent = participant.lost;
+      buildingCell.textContent = participant.building;
 
       row.appendChild(nameCell);
       row.appendChild(scoreCell);
+      row.appendChild(starsCell);
+      row.appendChild(matchCell);
+      row.appendChild(killCell);
+      row.appendChild(lostCell);
+      row.appendChild(buildingCell);
       tbody.appendChild(row);
     });
   }
 
   var matches = [
-    { name: "Partie 1", winner: "Les as" },
-    { name: "Partie 2", winner: "" },
-    { name: "Partie 3", winner: "" },
-    { name: "Partie 4", winner: "" },
-    { name: "Partie 5", winner: "" },
+    { name: "1", winner: "" },
+    { name: "2", winner: "" },
+    { name: "3", winner: "" },
+    { name: "4", winner: "" },
+    { name: "5", winner: "" },
     // ... autres parties ...
   ];
 
@@ -168,22 +183,21 @@ document.addEventListener("DOMContentLoaded", function () {
   function loadGameData(partieNumber) {
     // Fetch the game data from the corresponding JSON file
     fetch(`saves/partie${partieNumber}.json`)
-        .then(response => response.json())
-        .then(gameData => {
-            // Update the game statistics using the fetched data
-            updateGameStats(gameData);
-        })
-        .catch(error => {
-            console.error("Error fetching game data:", error);
-        });
-}
+      .then((response) => response.json())
+      .then((gameData) => {
+        // Update the game statistics using the fetched data
+        updateGameStats(gameData);
+      })
+      .catch((error) => {
+        console.error("Error fetching game data:", error);
+      });
+  }
 
   // Lorsque l'utilisateur clique sur le bouton de fermeture (x), fermez la fenêtre modale
   document.querySelector(".close").addEventListener("click", function () {
     var modal = document.getElementById("gameResultsModal");
-    document.getElementById('gameResultsModal').style.display = 'none';
+    document.getElementById("gameResultsModal").style.display = "none";
     modal.style.display = "none";
-    
   });
 
   // Si l'utilisateur clique n'importe où en dehors de la fenêtre modale, fermez-la
@@ -196,80 +210,85 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function updateGameStats(gameData) {
     // Sélectionnez l'élément où vous souhaitez afficher les résultats
-    var resultsDiv = document.getElementById('gameResults');
-    document.getElementById('gameResultsModal').style.display = 'block';
+    var resultsDiv = document.getElementById("gameResults");
+    document.getElementById("gameResultsModal").style.display = "block";
 
     // Créez un tableau pour afficher les statistiques
-    var table = document.createElement('table');
-    var thead = document.createElement('thead');
-    var tbody = document.createElement('tbody');
+    var table = document.createElement("table");
+    var thead = document.createElement("thead");
+    var tbody = document.createElement("tbody");
 
     // En-tête du tableau
-    var headers = ["Nom", "Score", "Civilisation", "Unités tuées", "Unités perdues", "Bâtiments détruits", "Bâtiments perdus"];
-    var tr = document.createElement('tr');
-    headers.forEach(function(header) {
-        var th = document.createElement('th');
-        th.textContent = header;
-        tr.appendChild(th);
+    var headers = [
+      "Nom",
+      "Score",
+      "Civilisation",
+      "Unités tuées",
+      "Unités perdues",
+      "Bâtiments détruits",
+      "Bâtiments perdus",
+    ];
+    var tr = document.createElement("tr");
+    headers.forEach(function (header) {
+      var th = document.createElement("th");
+      th.textContent = header;
+      tr.appendChild(th);
     });
     thead.appendChild(tr);
     table.appendChild(thead);
 
     // Contenu du tableau
-    gameData.players.forEach(function(player) {
-        var tr = document.createElement('tr');
-        var tdName = document.createElement('td');
-        var tdScore = document.createElement('td');
-        var tdCivilization = document.createElement('td');
-        var tdUnitsKilled = document.createElement('td');
-        var tdUnitsLost = document.createElement('td');
-        var tdBuildingsRazed = document.createElement('td');
-        var tdBuildingsLost = document.createElement('td');
+    gameData.players.forEach(function (player) {
+      var tr = document.createElement("tr");
+      var tdName = document.createElement("td");
+      var tdScore = document.createElement("td");
+      var tdCivilization = document.createElement("td");
+      var tdUnitsKilled = document.createElement("td");
+      var tdUnitsLost = document.createElement("td");
+      var tdBuildingsRazed = document.createElement("td");
+      var tdBuildingsLost = document.createElement("td");
 
-        tdName.textContent = player.name;
-        tdScore.textContent = player.score;
-        tdCivilization.textContent = player.civilization;
-        tdUnitsKilled.textContent = player.unitsKilled;
-        tdUnitsLost.textContent = player.unitsLost;
-        tdBuildingsRazed.textContent = player.buildingsRazed;
-        tdBuildingsLost.textContent = player.buildingsLost;
+      tdName.textContent = player.name;
+      tdScore.textContent = player.score;
+      tdCivilization.textContent = player.civilization;
+      tdUnitsKilled.textContent = player.unitsKilled;
+      tdUnitsLost.textContent = player.unitsLost;
+      tdBuildingsRazed.textContent = player.buildingsRazed;
+      tdBuildingsLost.textContent = player.buildingsLost;
 
-        tr.appendChild(tdName);
-        tr.appendChild(tdScore);
-        tr.appendChild(tdCivilization);
-        tr.appendChild(tdUnitsKilled);
-        tr.appendChild(tdUnitsLost);
-        tr.appendChild(tdBuildingsRazed);
-        tr.appendChild(tdBuildingsLost);
+      tr.appendChild(tdName);
+      tr.appendChild(tdScore);
+      tr.appendChild(tdCivilization);
+      tr.appendChild(tdUnitsKilled);
+      tr.appendChild(tdUnitsLost);
+      tr.appendChild(tdBuildingsRazed);
+      tr.appendChild(tdBuildingsLost);
 
-        tbody.appendChild(tr);
+      tbody.appendChild(tr);
     });
     table.appendChild(tbody);
 
     // Ajoutez le tableau à l'élément de résultats
-    resultsDiv.innerHTML = ''; // Effacez les anciens résultats
+    resultsDiv.innerHTML = ""; // Effacez les anciens résultats
     resultsDiv.appendChild(table);
+  }
 
-}
-
-
-// Ajout de gestionnaires d'événements à chaque élément de jeu
-document.querySelectorAll('.game-link').forEach(function(gameLink) {
-    gameLink.addEventListener('click', function(event) {
-        event.preventDefault();
-        const partieNumber = event.target.getAttribute('data-partie-number');
-        onGameClick(partieNumber);
+  // Ajout de gestionnaires d'événements à chaque élément de jeu
+  document.querySelectorAll(".game-link").forEach(function (gameLink) {
+    gameLink.addEventListener("click", function (event) {
+      event.preventDefault();
+      const partieNumber = event.target.getAttribute("data-partie-number");
+      onGameClick(partieNumber);
     });
-});
+  });
 
-function onGameClick(partieNumber) {
+/*   function onGameClick(partieNumber) {
     loadGameData(partieNumber);
-}
-  
-  
+  } */
+
   // Initialiser le tableau au chargement de la page
   updateMatchesTable();
-  
+
   // Appelez cette fonction chaque fois que les scores sont mis à jour
   updateScoreboard();
   onGameClick();

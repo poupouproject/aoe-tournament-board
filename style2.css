@@ -1,0 +1,17 @@
+body {
+    font-family: 'VotrePolice', sans-serif; /* Remplacez par une police similaire à celle d'AOE2 */
+    background-color: #f4f4f4;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+/* Ajoutez plus de styles selon vos préférences */

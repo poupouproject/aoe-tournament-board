@@ -76,7 +76,7 @@ button:disabled {
     right: 20px;
     top: 50%;
     transform: translateY(-50%);
-    width: 300px; /* ou la largeur que vous préférez pour votre tableau */
+    width: 600px; /* ou la largeur que vous préférez pour votre tableau */
     background: url('images/parchment-texture.jpg'); /* Image de fond thématique */
     border-radius: 25px;
     border: 3px solid #4e4b4b; /* Une bordure pour le tableau, peut-être quelque chose qui ressemble à de la pierre ou du bois */
@@ -84,6 +84,16 @@ button:disabled {
     color: #2e2e2e; /* Couleur de texte qui contraste bien avec votre arrière-plan */
     font-weight: bold;
     z-index: 1; /* ou une valeur inférieure à celle des autres éléments avec lesquels il se superpose */
+}
+.player {
+    margin: 10px 0;
+    padding: 5px;
+    background-color: #f0f0f0;
+    cursor: pointer;
+}
+
+.player:hover {
+    background-color: #e0e0e0;
 }
 
 #scoreboard table {
@@ -121,7 +131,7 @@ button:disabled {
 
 #matches th, #matches td {
     padding: 10px; /* espace autour du texte dans les cellules */
-    text-align: left; /* aligner le texte à gauche */
+    text-align: center; /* aligner le texte à gauche */
 }
 
 #matches th {

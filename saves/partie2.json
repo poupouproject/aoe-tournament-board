@@ -122,7 +122,7 @@
     }
   ],
   "victory": {
-    "team": "Équipe Rouge",
+    "team": "Équipe Bleue",
     "winningPlayers": ["Joueur1", "Joueur2"]
   }
 }
