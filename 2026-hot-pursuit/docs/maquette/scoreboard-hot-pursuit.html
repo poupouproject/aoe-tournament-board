@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scoreboard Hot Pursuit</title>
+<!--
+  MAQUETTE — Scoreboard projo 1 (« Tour de contrôle »)
+  ─────────────────────────────────────────────────────
+  Structure du script (en bas du fichier) :
+    1. CONFIG      → joueurs, équipes, rivaux, barème
+    2. SCHEDULE    → l'horaire complet des manches (21)
+    3. RESULTS     → les résultats saisis (index aligné sur SCHEDULE)
+    4. ENGINE      → compute(n) : calcule classement + équipes après n manches
+    5. RENDER      → dessine la tour, les panneaux, le ticker, la vue duel
+
+  Pour « faire vivre » : remplacer RESULTS par une source live
+  (API / Supabase / fichier JSON) et rappeler render() à chaque changement.
+
+  Raccourcis : [1] classement  ·  [2] face-à-face (prochain duel)
+  Le stage est fixé à 1920×1080 et mis à l'échelle de la fenêtre.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Saira:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#06080c; --panel:#0d121a; --panel2:#111823; --line:#1d2735;
+    --text:#eaf0f8; --muted:#7a889b; --dim:#4a5566;
+    --red:#ff2d46; --blue:#2d7bff; --gold:#ffc93c; --up:#2ee59d; --down:#ff5a5a;
+    --cond:'Saira Condensed', sans-serif; --body:'Saira', sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#000;overflow:hidden}
+  body{font-family:var(--body);color:var(--text)}
+  .num{font-family:var(--cond);font-variant-numeric:tabular-nums}
+
+  /* ── Stage 1920×1080 ───────────────────────────── */
+  #stage{
+    position:absolute;left:50%;top:50%;width:1920px;height:1080px;
+    transform-origin:center center;
+    background:
+      radial-gradient(900px 500px at 0% 0%, rgba(255,45,70,.10), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(45,123,255,.12), transparent 60%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.015) 0 2px, transparent 2px 120px),
+      var(--bg);
+    display:grid;grid-template-rows:8px auto 1fr 64px;overflow:hidden;
+  }
+
+  /* Gyrophare */
+  .lightbar{display:grid;grid-template-columns:1fr 1fr}
+  .lightbar span{display:block}
+  .lightbar span:first-child{background:var(--red);animation:flash 1s steps(1) infinite}
+  .lightbar span:last-child{background:var(--blue);animation:flash 1s steps(1) infinite .5s}
+  @keyframes flash{0%{opacity:1}50%{opacity:.15}}
+
+  /* ── En-tête ───────────────────────────────────── */
+  header{display:flex;align-items:center;justify-content:space-between;padding:26px 56px 22px}
+  .brand h1{font-family:var(--cond);font-weight:800;font-size:66px;line-height:.9;
+    text-transform:uppercase;letter-spacing:.01em;transform:skewX(-9deg);transform-origin:left}
+  .brand h1 em{font-style:normal;color:var(--red)}
+  .brand h1 b{color:var(--blue)}
+  .brand p{margin-top:10px;color:var(--muted);font-size:18px;letter-spacing:.22em;text-transform:uppercase}
+  .meta{display:flex;align-items:center;gap:40px}
+  .manche{text-align:right}
+  .manche small{display:block;color:var(--muted);font-size:15px;letter-spacing:.25em;text-transform:uppercase}
+  .manche strong{font-family:var(--cond);font-weight:800;font-size:72px;line-height:.9}
+  .manche strong span{color:var(--dim);font-size:40px}
+  .badge-x2{font-family:var(--cond);font-weight:800;font-size:30px;padding:8px 18px;
+    background:var(--gold);color:#120d00;transform:skewX(-10deg);display:none;animation:pulse 1.2s ease-in-out infinite}
+  .badge-x2.on{display:block}
+  @keyframes pulse{50%{box-shadow:0 0 0 10px rgba(255,201,60,0)}0%{box-shadow:0 0 0 0 rgba(255,201,60,.6)}}
+  .clock{font-family:var(--cond);font-weight:600;font-size:40px;color:var(--muted);
+    border-left:1px solid var(--line);padding-left:40px}
+
+  /* ── Corps ─────────────────────────────────────── */
+  main{display:grid;grid-template-columns:1fr 700px;gap:36px;padding:0 56px 24px;min-height:0}
+
+  /* Tour de classement */
+  .tower{display:flex;flex-direction:column;min-height:0}
+  .cols,.row{display:grid;grid-template-columns:88px 74px 1fr 200px 110px 130px 140px;align-items:center}
+  .cols{padding:0 26px 10px;color:var(--dim);font-size:14px;letter-spacing:.2em;text-transform:uppercase}
+  .cols div:nth-child(n+5){text-align:right}
+  .rows{display:flex;flex-direction:column;gap:8px;flex:1}
+  .row{
+    flex:1;padding:0 26px;background:var(--panel);position:relative;
+    clip-path:polygon(16px 0,100% 0,calc(100% - 16px) 100%,0 100%);
+    animation:rowIn .6s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * 70ms);
+  }
+  .row:nth-child(even){background:var(--panel2)}
+  @keyframes rowIn{from{transform:translateX(-80px);opacity:0}}
+  .row.leader{background:linear-gradient(90deg, rgba(255,201,60,.22), rgba(255,201,60,.04) 55%, var(--panel))}
+  .pos{font-family:var(--cond);font-weight:800;font-size:56px}
+  .row.leader .pos{color:var(--gold)}
+  .delta{font-family:var(--cond);font-weight:700;font-size:24px}
+  .delta.up{color:var(--up)} .delta.down{color:var(--down)} .delta.eq{color:var(--dim)}
+  .who{display:flex;align-items:center;gap:18px;min-width:0;overflow:hidden}
+  .who > div{min-width:0}
+  .stripe{width:8px;height:52px;flex:none;transform:skewX(-12deg)}
+  .who .n{font-family:var(--cond);font-weight:700;font-size:44px;text-transform:uppercase;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .who .r{font-size:15px;color:var(--muted);letter-spacing:.08em;margin-top:4px}
+  .tags{display:flex;gap:10px;justify-content:flex-start}
+  .tag{font-family:var(--cond);font-weight:700;font-size:17px;letter-spacing:.12em;padding:4px 10px;
+    border:1px solid var(--line);color:var(--muted);text-transform:uppercase}
+  .tag.cible{background:var(--gold);border-color:var(--gold);color:#120d00}
+  .tag.joker{border-color:var(--gold);color:var(--gold)}
+  .tag.joker.used{border-color:var(--line);color:var(--dim);text-decoration:line-through}
+  .last,.gap,.pts{text-align:right}
+  .last{font-family:var(--cond);font-size:30px;color:var(--up)}
+  .last.zero{color:var(--dim)}
+  .gap{font-family:var(--cond);font-size:30px;color:var(--muted)}
+  .gap.lead{color:var(--gold);font-size:22px;letter-spacing:.15em}
+  .pts{font-family:var(--cond);font-weight:800;font-size:60px}
+
+  /* Colonne de droite */
+  aside{display:flex;flex-direction:column;gap:20px;min-height:0}
+  .panel{background:var(--panel);border:1px solid var(--line);padding:22px 28px}
+  .ptitle{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:15px;
+    letter-spacing:.25em;text-transform:uppercase;margin-bottom:16px}
+  .ptitle::before{content:"";width:22px;height:4px;background:linear-gradient(90deg,var(--red) 50%,var(--blue) 50%)}
+
+  /* Équipes */
+  .teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:end}
+  .team .tn{font-family:var(--cond);font-weight:700;font-size:26px;text-transform:uppercase;letter-spacing:.1em}
+  .team .tp{font-family:var(--cond);font-weight:800;font-size:80px;line-height:.95}
+  .team.b{text-align:right}
+  .team.r .tn,.team.r .tp{color:var(--red)} .team.b .tn,.team.b .tp{color:var(--blue)}
+  .vs{font-family:var(--cond);font-weight:800;color:var(--dim);font-size:30px;padding:0 20px 18px}
+  .tbar{display:flex;height:16px;margin-top:14px;background:var(--line);overflow:hidden}
+  .tbar div{transition:width .8s cubic-bezier(.2,.8,.2,1)}
+  .tlead{margin-top:10px;font-size:16px;color:var(--muted);text-align:center;letter-spacing:.08em}
+
+  /* Prochaine manche */
+  .next{position:relative;overflow:hidden;cursor:pointer}
+  .next .mode{font-family:var(--cond);font-weight:800;font-size:56px;text-transform:uppercase;line-height:.95;transform:skewX(-8deg);transform-origin:left}
+  .next .track{font-size:22px;color:var(--muted);margin-top:6px}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:10px 22px;margin-top:20px;font-size:20px}
+  .kv dt{color:var(--dim);text-transform:uppercase;letter-spacing:.15em;font-size:15px;align-self:center}
+  .kv dd{font-family:var(--cond);font-weight:600;font-size:26px}
+  .pill{display:inline-block;padding:2px 12px;margin-right:6px;font-family:var(--cond);font-weight:700;font-size:20px;text-transform:uppercase}
+  .pill.rouge{background:var(--red)} .pill.bleu{background:var(--blue)}
+
+  /* Rivalités */
+  .rivals{flex:1;min-height:0}
+  .rv{display:grid;grid-template-columns:1fr 120px 1fr;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+  .rv:first-of-type{border-top:0}
+  .rv .a,.rv .b{font-family:var(--cond);font-weight:700;font-size:28px;text-transform:uppercase}
+  .rv .a{color:var(--red)} .rv .b{color:var(--blue);text-align:right}
+  .rv .s{text-align:center;font-family:var(--cond);font-weight:800;font-size:32px}
+  .rv .s i{font-style:normal;color:var(--dim);padding:0 6px}
+
+  /* Ticker */
+  .ticker{display:flex;align-items:stretch;background:#0a0e14;border-top:1px solid var(--line);overflow:hidden}
+  .live{flex:none;display:flex;align-items:center;gap:10px;padding:0 26px;background:var(--red);
+    font-family:var(--cond);font-weight:800;font-size:24px;letter-spacing:.15em}
+  .live::before{content:"";width:12px;height:12px;border-radius:50%;background:#fff;animation:flash 1s steps(1) infinite}
+  .track-wrap{flex:1;overflow:hidden;display:flex;align-items:center}
+  .track-run{display:flex;white-space:nowrap;animation:run 55s linear infinite}
+  .track-run span{font-family:var(--cond);font-weight:600;font-size:26px;padding:0 34px;color:var(--text)}
+  .track-run span::after{content:"◆";color:var(--dim);font-size:14px;margin-left:68px;vertical-align:middle}
+  @keyframes run{to{transform:translateX(-50%)}}
+
+  /* ── Vue face-à-face ───────────────────────────── */
+  #duel{position:absolute;inset:8px 0 0 0;display:none;grid-template-columns:1fr 420px 1fr;align-items:center;
+    background:var(--bg);z-index:5}
+  #duel.on{display:grid;animation:fade .4s ease both}
+  @keyframes fade{from{opacity:0}}
+  .side{height:100%;display:flex;flex-direction:column;justify-content:center;padding:0 90px}
+  .side.r{background:linear-gradient(100deg, rgba(255,45,70,.35), transparent 85%)}
+  .side.b{background:linear-gradient(260deg, rgba(45,123,255,.35), transparent 85%);text-align:right}
+  .side .lbl{font-size:20px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted)}
+  .side .big{font-family:var(--cond);font-weight:800;font-size:var(--fs,170px);white-space:nowrap;line-height:.9;text-transform:uppercase;transform:skewX(-8deg)}
+  .side.r .big{color:var(--red)} .side.b .big{color:var(--blue)}
+  .stats{display:flex;gap:50px;margin-top:30px}
+  .side.b .stats{justify-content:flex-end}
+  .stats div{font-size:18px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase}
+  .stats sup{text-transform:none;font-size:.5em}
+  .stats b{display:block;font-family:var(--cond);font-size:64px;color:var(--text);letter-spacing:0}
+  .mid{text-align:center}
+  .mid .v{font-family:var(--cond);font-weight:800;font-size:150px;color:var(--gold);transform:skewX(-8deg)}
+  .mid .h2h{font-family:var(--cond);font-weight:800;font-size:56px}
+  .mid small{display:block;color:var(--muted);letter-spacing:.2em;font-size:16px;text-transform:uppercase;margin-top:6px}
+  .mid .fmt{margin-top:30px;font-family:var(--cond);font-weight:700;font-size:22px;border:1px solid var(--line);padding:8px 14px;letter-spacing:.08em;white-space:nowrap;display:inline-block}
+
+  .hint{position:fixed;right:12px;bottom:10px;font:12px var(--body);color:#444;z-index:9}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div class="lightbar"><span></span><span></span></div>
+
+  <header>
+    <div class="brand">
+      <h1><em>Grand Prix</em> de <b>Seacrest</b></h1>
+      <p>FDS Gaming 2026 · Tournoi Hot Pursuit</p>
+    </div>
+    <div class="meta">
+      <div class="badge-x2" id="x2">POINTS ×2</div>
+      <div class="manche">
+        <small id="bloc">Bloc</small>
+        <strong class="num" id="mancheNo">00<span>/21</span></strong>
+      </div>
+      <div class="clock num" id="clock">00:00</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="tower">
+      <div class="cols">
+        <div>Pos</div><div></div><div>Pilote</div><div></div>
+        <div>Dern.</div><div>Écart</div><div>Pts</div>
+      </div>
+      <div class="rows" id="rows"></div>
+    </section>
+
+    <aside>
+      <div class="panel">
+        <div class="ptitle">Guerre des équipes</div>
+        <div class="teams">
+          <div class="team r"><div class="tn">Rouge</div><div class="tp num" id="tRouge">0</div></div>
+          <div class="vs">VS</div>
+          <div class="team b"><div class="tn">Bleu</div><div class="tp num" id="tBleu">0</div></div>
+        </div>
+        <div class="tbar"><div id="barR" style="background:var(--red)"></div><div id="barB" style="background:var(--blue)"></div></div>
+        <div class="tlead" id="tLead"></div>
+      </div>
+
+      <div class="panel next" id="next" title="Cliquer pour la vue face-à-face"></div>
+
+      <div class="panel rivals">
+        <div class="ptitle">Rivalités · face-à-face</div>
+        <div id="rivals"></div>
+      </div>
+    </aside>
+
+  </main>
+
+  <div class="ticker">
+    <div class="live">EN DIRECT</div>
+    <div class="track-wrap"><div class="track-run" id="ticker"></div></div>
+  </div>
+
+  <!-- Vue face-à-face -->
+  <div id="duel"></div>
+</div>
+
+<div class="hint">[1] classement · [2] face-à-face</div>
+
+<script>
+/* ═════════════ 1. CONFIG ═════════════ */
+const players = [
+  { id:'jo',   name:'Jonathan', team:'rouge' },
+  { id:'ben',  name:'Ben',      team:'rouge' },
+  { id:'fred', name:'Fred',     team:'rouge' },
+  { id:'alex', name:'Alex',     team:'rouge' },
+  { id:'max',  name:'Max',      team:'bleu'  },
+  { id:'seb',  name:'Seb',      team:'bleu'  },
+  { id:'kev',  name:'Kev',      team:'bleu'  },
+  { id:'oli',  name:'Olivier',  team:'bleu'  },
+];
+const teams = { rouge:{ name:'Rouge', color:'var(--red)' }, bleu:{ name:'Bleu', color:'var(--blue)' } };
+const rivalPairs = [['jo','max'],['ben','seb'],['fred','kev'],['alex','oli']]; // toujours rouge vs bleu
+const rivals = Object.fromEntries(rivalPairs.flatMap(([a,b]) => [[a,b],[b,a]]));
+
+const PTS = {
+  qualif:   [8,7,6,5,4,3,2,1],
+  race:     [10,8,7,6,5,4,3,2],
+  hpRacer:  [8,6,5,4],          // busté = 0
+  hpBust:   2,                  // par bust (cop)
+  hpWinTeam:10,                 // camp gagnant → équipe
+  duelRound:5,                  // par manche de duel gagnée
+  duelTeam: 3,                  // duel gagné → équipe
+  prime:    2,                  // finir devant le leader (Race)
+  rival:    1,                  // battre son rival (Race)
+};
+
+/* ═════════════ 2. SCHEDULE ═════════════ */
+const R = (track, bloc, extra={}) => ({ type:'race', track, bloc, ...extra });
+const H = (track, cops, bloc, extra={}) => ({ type:'hp', track, cops, bloc, ...extra });
+const D = (a, b) => ({ type:'duel', a, b, bloc:'Duels Interceptor', track:'Meilleur de 2' });
+const schedule = [
+  { type:'qualif', bloc:'Qualifications', track:'3 Races cumulées' },
+  R('Route côtière','Bloc 1'), R('Col des Pins','Bloc 1'),
+  H('Canyon rouge','rouge','Bloc 1'), H('Canyon rouge','bleu','Bloc 1'),
+  R('Boucle du port','Bloc 2'), R('Désert de sel','Bloc 2'),
+  H('Forêt brumeuse','rouge','Bloc 2'), H('Forêt brumeuse','bleu','Bloc 2'),
+  D('jo','max'), D('ben','seb'), D('fred','kev'), D('alex','oli'),
+  R('Falaises du nord','Bloc 3'), R('Autoroute 9','Bloc 3'),
+  H('Lac gelé','rouge','Bloc 3'), H('Lac gelé','bleu','Bloc 3'),
+  R('Route côtière','Finale',{final:true}), R('Col des Pins','Finale',{final:true}),
+  H('Grand circuit','rouge','Finale',{final:true}), H('Grand circuit','bleu','Finale',{final:true}),
+];
+
+/* ═════════════ 3. RESULTS (démo) ═════════════
+   race  : { order:[ids 1er→8e], jokers:[ids] }
+   hp    : { racers:[{id,pos|null}], busts:{id:n}, winner:'cops'|'racers', jokers }
+   duel  : { rounds:[idGagnantManche1, idGagnantManche2], tiebreak:id }   */
+const results = [
+  { order:['max','jo','seb','ben','kev','fred','oli','alex'] },
+  { order:['jo','max','ben','seb','fred','kev','alex','oli'] },
+  { order:['seb','jo','max','kev','ben','alex','fred','oli'], jokers:['seb'] },
+  { racers:[{id:'max',pos:1},{id:'seb',pos:2},{id:'kev',pos:null},{id:'oli',pos:null}], busts:{jo:1,fred:1}, winner:'racers' },
+  { racers:[{id:'jo',pos:1},{id:'fred',pos:2},{id:'ben',pos:null},{id:'alex',pos:null}], busts:{max:1,kev:1}, winner:'racers' },
+  { order:['max','seb','jo','ben','kev','oli','fred','alex'] },
+  { order:['ben','jo','max','fred','seb','alex','kev','oli'], jokers:['ben'] },
+  { racers:[{id:'seb',pos:1},{id:'max',pos:null},{id:'kev',pos:null},{id:'oli',pos:null}], busts:{ben:2,alex:1}, winner:'racers' },
+  { racers:[{id:'jo',pos:null},{id:'ben',pos:null},{id:'fred',pos:null},{id:'alex',pos:null}], busts:{max:2,oli:1,kev:1}, winner:'cops', jokers:['max'] },
+];
+
+/* ═════════════ 4. ENGINE ═════════════ */
+const P = id => players.find(p => p.id === id);
+const N = id => P(id).name;
+
+function standings(S){
+  return Object.values(S).sort((a,b) => b.pts - a.pts || b.h2h - a.h2h || a.id.localeCompare(b.id));
+}
+
+function compute(n){
+  const S = Object.fromEntries(players.map(p => [p.id, { id:p.id, pts:0, last:0, h2h:0, jokerUsed:false }]));
+  const T = { rouge:0, bleu:0 };
+  let log = [];
+
+  for (let i = 0; i < n; i++){
+    const m = { ...schedule[i], ...results[i] };
+    const mult = m.final ? 2 : 1;
+    const leader = i > 0 ? standings(S)[0].id : null;
+    const g  = Object.fromEntries(players.map(p => [p.id, 0]));
+    const tg = { rouge:0, bleu:0 };
+    const msgs = [];
+
+    if (m.type === 'qualif'){
+      m.order.forEach((id,k) => g[id] += PTS.qualif[k]);
+      msgs.push(`${N(m.order[0])} remporte les qualifications`);
+    }
+
+    if (m.type === 'race'){
+      const lp = leader ? m.order.indexOf(leader) : -1;
+      m.order.forEach((id,k) => {
+        g[id] += PTS.race[k];
+        if (leader && id !== leader && k < lp) g[id] += PTS.prime;
+        if (k < m.order.indexOf(rivals[id])) { g[id] += PTS.rival; S[id].h2h++; }
+      });
+      msgs.push(`${N(m.order[0])} gagne « ${m.track} »`);
+      if (leader) msgs.push(lp > 0
+        ? `Prime : ${lp} pilote${lp>1?'s':''} devant ${N(leader)} (+${PTS.prime})`
+        : `${N(leader)} gagne en tête — la prime tient toujours`);
+    }
+
+    if (m.type === 'hp'){
+      const racersTeam = m.cops === 'rouge' ? 'bleu' : 'rouge';
+      m.racers.forEach(r => { if (r.pos) g[r.id] += PTS.hpRacer[r.pos-1]; });
+      Object.entries(m.busts || {}).forEach(([id,c]) => g[id] += PTS.hpBust * c);
+      const win = m.winner === 'cops' ? m.cops : racersTeam;
+      tg[win] += PTS.hpWinTeam;
+      msgs.push(m.winner === 'cops'
+        ? `Les cops ${teams[m.cops].name} arrêtent tout le monde sur « ${m.track} »`
+        : `Les racers ${teams[racersTeam].name} s'échappent sur « ${m.track} »`);
+      const top = Object.entries(m.busts || {}).sort((a,b) => b[1]-a[1])[0];
+      if (top) msgs.push(`${N(top[0])} : ${top[1]} bust${top[1]>1?'s':''} (+${PTS.hpBust*top[1]})`);
+    }
+
+    if (m.type === 'duel'){
+      m.rounds.forEach(w => g[w] += PTS.duelRound);
+      const wa = m.rounds.filter(w => w === m.a).length, wb = m.rounds.length - wa;
+      const winner = wa > wb ? m.a : wb > wa ? m.b : m.tiebreak;
+      S[winner].h2h++;
+      tg[P(winner).team] += PTS.duelTeam;
+      msgs.push(`Duel : ${N(winner)} bat ${N(winner === m.a ? m.b : m.a)}`);
+    }
+
+    (m.jokers || []).forEach(id => {
+      if (!m.final && !S[id].jokerUsed){ g[id] *= 2; S[id].jokerUsed = true; msgs.push(`JOKER : ${N(id)} double sa manche`); }
+    });
+
+    if (m.type === 'race') players.forEach(p => tg[p.team] += g[p.id]);
+
+    players.forEach(p => { const v = g[p.id] * mult; S[p.id].pts += v; S[p.id].last = v; });
+    T.rouge += tg.rouge * mult; T.bleu += tg.bleu * mult;
+    log = msgs;
+  }
+  return { S, T, log };
+}
+
+/* ═════════════ 5. RENDER ═════════════ */
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,'0');
+
+function render(){
+  const done = results.length;
+  const { S, T, log } = compute(done);
+  const table = standings(S);
+  const prev = done > 1 ? standings(compute(done-1).S).map(s => s.id) : null;
+  const next = schedule[done];
+  const leader = table[0];
+
+  // En-tête
+  $('mancheNo').innerHTML = `${pad(done)}<span>/${schedule.length}</span>`;
+  $('bloc').textContent = next ? `Prochain : ${next.bloc}` : 'Tournoi terminé';
+  $('x2').classList.toggle('on', !!(next && next.final));
+
+  // Tour
+  $('rows').innerHTML = table.map((s,i) => {
+    const p = P(s.id);
+    const d = prev ? prev.indexOf(s.id) - i : 0;
+    const delta = d > 0 ? `<span class="delta up">▲${d}</span>` : d < 0 ? `<span class="delta down">▼${-d}</span>` : `<span class="delta eq">—</span>`;
+    return `<div class="row ${i===0?'leader':''}" style="--i:${i}">
+      <div class="pos">${i+1}</div>
+      <div>${delta}</div>
+      <div class="who"><span class="stripe" style="background:${teams[p.team].color}"></span>
+        <div><div class="n">${p.name}</div><div class="r">rival · ${N(rivals[s.id])}</div></div></div>
+      <div class="tags">${i===0 ? '<span class="tag cible">Cible</span>' : ''}
+        <span class="tag joker ${s.jokerUsed?'used':''}">Joker</span></div>
+      <div class="last ${s.last?'':'zero'}">${s.last ? '+'+s.last : '—'}</div>
+      <div class="gap ${i===0?'lead':''}">${i===0 ? 'LEADER' : '−'+(leader.pts - s.pts)}</div>
+      <div class="pts">${s.pts}</div>
+    </div>`;
+  }).join('');
+
+  // Équipes
+  $('tRouge').textContent = T.rouge; $('tBleu').textContent = T.bleu;
+  const tot = (T.rouge + T.bleu) || 1;
+  $('barR').style.width = (T.rouge/tot*100) + '%'; $('barB').style.width = (T.bleu/tot*100) + '%';
+  const diff = T.rouge - T.bleu;
+  $('tLead').textContent = diff === 0 ? 'Égalité parfaite' : `${diff>0?'Rouge':'Bleu'} mène par ${Math.abs(diff)} pts`;
+
+  // Prochaine manche
+  $('next').innerHTML = next ? nextCard(next, S, leader) : '<div class="ptitle">Prochaine manche</div><div class="mode">Podium</div>';
+
+  // Rivalités
+  $('rivals').innerHTML = rivalPairs.map(([a,b]) =>
+    `<div class="rv"><div class="a">${N(a)}</div><div class="s num">${S[a].h2h}<i>–</i>${S[b].h2h}</div><div class="b">${N(b)}</div></div>`
+  ).join('');
+
+  // Ticker
+  const moves = prev ? table.map((s,i) => ({ id:s.id, d: prev.indexOf(s.id) - i })).filter(x => x.d >= 2)
+    .map(x => `${N(x.id)} grimpe de ${x.d} places`) : [];
+  const items = [...log, ...moves,
+    `${leader.id ? N(leader.id) : ''} est la cible : +${PTS.prime} à quiconque finit devant`,
+    'Joker : ×2 sur une manche, une fois par jour', 'Finale : tous les points doublés'];
+  $('ticker').innerHTML = [...items, ...items].map(t => `<span>${t}</span>`).join('');
+
+  // Vue duel
+  renderDuel(next, S, table);
+}
+
+function nextCard(m, S, leader){
+  const jokersLeft = players.filter(p => !S[p.id].jokerUsed).length;
+  let mode, rows;
+  if (m.type === 'race'){
+    mode = 'Race';
+    rows = `<dt>Cible</dt><dd>${N(leader.id)} <span style="color:var(--gold)">+${PTS.prime}</span></dd>
+            <dt>Jokers</dt><dd>${m.final ? 'Interdits en finale' : jokersLeft + ' encore disponibles'}</dd>`;
+  } else if (m.type === 'hp'){
+    const rt = m.cops === 'rouge' ? 'bleu' : 'rouge';
+    mode = 'Hot Pursuit';
+    rows = `<dt>Cops</dt><dd><span class="pill ${m.cops}">${teams[m.cops].name}</span></dd>
+            <dt>Racers</dt><dd><span class="pill ${rt}">${teams[rt].name}</span></dd>
+            <dt>Enjeu</dt><dd>+${PTS.hpWinTeam} au camp gagnant</dd>`;
+  } else if (m.type === 'duel'){
+    mode = 'Interceptor';
+    rows = `<dt>Duel</dt><dd><span class="pill rouge">${N(m.a)}</span> vs <span class="pill bleu">${N(m.b)}</span></dd>
+            <dt>Bilan</dt><dd>${S[m.a].h2h} – ${S[m.b].h2h}</dd>
+            <dt>Enjeu</dt><dd>+${PTS.duelRound} / manche · +${PTS.duelTeam} équipe</dd>`;
+  } else { mode = 'Qualifs'; rows = ''; }
+  return `<div class="ptitle">Prochaine manche${m.final ? ' · <span style="color:var(--gold)">points ×2</span>' : ''}</div>
+    <div class="mode">${mode}</div><div class="track">${m.track}</div><dl class="kv">${rows}</dl>`;
+}
+
+function renderDuel(next, S, table){
+  const [a,b] = next && next.type === 'duel' ? [next.a, next.b] : rivalPairs[0];
+  const pos = id => table.findIndex(s => s.id === id) + 1;
+  const side = (id, cls) => `<div class="side ${cls}">
+      <div class="lbl">Équipe ${teams[P(id).team].name}</div>
+      <div class="big" style="--fs:${N(id).length > 6 ? 130 : 170}px">${N(id)}</div>
+      <div class="stats"><div>Position<b>${pos(id)}<sup>e</sup></b></div><div>Points<b>${S[id].pts}</b></div></div>
+    </div>`;
+  $('duel').innerHTML = side(a,'r') +
+    `<div class="mid"><div class="v">VS</div><div class="h2h num">${S[a].h2h} – ${S[b].h2h}</div>
+      <small>Face-à-face</small><div class="fmt">INTERCEPTOR · MEILLEUR DE 2</div></div>` +
+    side(b,'b');
+}
+
+/* Horloge, échelle, raccourcis */
+function tick(){ const d = new Date(); $('clock').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function fit(){ const s = Math.min(innerWidth/1920, innerHeight/1080); $('stage').style.transform = `translate(-50%,-50%) scale(${s})`; }
+addEventListener('resize', fit);
+addEventListener('keydown', e => {
+  if (e.key === '1') $('duel').classList.remove('on');
+  if (e.key === '2') $('duel').classList.add('on');
+});
+$('next').addEventListener('click', () => $('duel').classList.toggle('on'));
+$('duel').addEventListener('click', () => $('duel').classList.remove('on'));
+
+fit(); tick(); setInterval(tick, 10000); render();
+</script>
+</body>
+</html>

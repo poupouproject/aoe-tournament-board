@@ -1,0 +1,4 @@
+docs/maquette/
+src/generated/
+prisma/migrations/
+package-lock.json
