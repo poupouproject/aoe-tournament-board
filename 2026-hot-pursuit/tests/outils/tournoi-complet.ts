@@ -16,7 +16,7 @@ export function resultatsComplets(tournoi: Tournoi): Resultat[] {
     const ordre = [...ids.slice(decalage), ...ids.slice(0, decalage)];
     switch (manche.type) {
       case 'qualif':
-        return { type: 'qualif', ordre };
+        return { type: 'qualif', races: [ordre] };
       case 'race':
         return { type: 'race', ordre };
       case 'hp': {
