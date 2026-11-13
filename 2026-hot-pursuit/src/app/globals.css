@@ -1,0 +1,19 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Saira', sans-serif;
+  --font-cond: 'Saira Condensed', sans-serif;
+  --color-fond: #06080c;
+  --color-panneau: #0d121a;
+  --color-ligne: #1d2735;
+  --color-texte: #eaf0f8;
+  --color-attenue: #7a889b;
+  --color-rouge: #ff2d46;
+  --color-bleu: #2d7bff;
+  --color-or: #ffc93c;
+}
+
+body {
+  background: var(--color-fond);
+  color: var(--color-texte);
+}

@@ -1,0 +1,717 @@
+/*
+ * Scoreboard projo 1 (« Tour de contrôle »), porté de
+ * docs/maquette/scoreboard-hot-pursuit.html. Le stage fait 1920×1080 et il est
+ * mis à l'échelle de la fenêtre : toutes les tailles sont en pixels du stage.
+ */
+
+.ecran {
+  --bg: #06080c;
+  --panel: #0d121a;
+  --panel2: #111823;
+  --line: #1d2735;
+  --text: #eaf0f8;
+  --muted: #7a889b;
+  --dim: #4a5566;
+  --red: #ff2d46;
+  --blue: #2d7bff;
+  --gold: #ffc93c;
+  --up: #2ee59d;
+  --down: #ff5a5a;
+  --cond: 'Saira Condensed', sans-serif;
+  --body: 'Saira', sans-serif;
+
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+  font-family: var(--body);
+  color: var(--text);
+}
+
+.num {
+  font-family: var(--cond);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Stage 1920×1080 ───────────────────────────── */
+.stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1920px;
+  height: 1080px;
+  transform: translate(-50%, -50%) scale(var(--echelle, 1));
+  transform-origin: center center;
+  background:
+    radial-gradient(900px 500px at 0% 0%, rgba(255, 45, 70, 0.1), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(45, 123, 255, 0.12), transparent 60%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.015) 0 2px, transparent 2px 120px),
+    var(--bg);
+  display: grid;
+  grid-template-rows: 8px auto 1fr 64px;
+  overflow: hidden;
+}
+
+/* Gyrophare */
+.lightbar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.lightbar span {
+  display: block;
+}
+.lightbar span:first-child {
+  background: var(--red);
+  animation: flash 1s steps(1) infinite;
+}
+.lightbar span:last-child {
+  background: var(--blue);
+  animation: flash 1s steps(1) infinite 0.5s;
+}
+@keyframes flash {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+
+/* ── En-tête ───────────────────────────────────── */
+.entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 26px 56px 22px;
+}
+.marque h1 {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 66px;
+  line-height: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  transform: skewX(-9deg);
+  transform-origin: left;
+}
+.marque h1 em {
+  font-style: normal;
+  color: var(--red);
+}
+.marque h1 b {
+  color: var(--blue);
+}
+.marque p {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 18px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+}
+.manche {
+  text-align: right;
+}
+.manche small {
+  display: block;
+  color: var(--muted);
+  font-size: 15px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+.manche strong {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 72px;
+  line-height: 0.9;
+}
+.manche strong span {
+  color: var(--dim);
+  font-size: 40px;
+}
+.badgeX2 {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 30px;
+  padding: 8px 18px;
+  background: var(--gold);
+  color: #120d00;
+  transform: skewX(-10deg);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    box-shadow: 0 0 0 10px rgba(255, 201, 60, 0);
+  }
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 201, 60, 0.6);
+  }
+}
+.horloge {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 40px;
+  color: var(--muted);
+  border-left: 1px solid var(--line);
+  padding-left: 40px;
+}
+
+/* ── Corps ─────────────────────────────────────── */
+.corps {
+  display: grid;
+  grid-template-columns: 1fr 700px;
+  gap: 36px;
+  padding: 0 56px 24px;
+  min-height: 0;
+}
+
+/* Tour de classement */
+.tour {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.colonnes,
+.ligne {
+  display: grid;
+  grid-template-columns: 88px 74px 1fr 200px 110px 130px 140px;
+  align-items: center;
+}
+.colonnes {
+  padding: 0 26px 10px;
+  color: var(--dim);
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.colonnes div:nth-child(n + 5) {
+  text-align: right;
+}
+.lignes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.ligne {
+  flex: 1;
+  padding: 0 26px;
+  background: var(--panel);
+  position: relative;
+  clip-path: polygon(16px 0, 100% 0, calc(100% - 16px) 100%, 0 100%);
+  animation: entree 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i) * 70ms);
+}
+.ligne:nth-child(even) {
+  background: var(--panel2);
+}
+@keyframes entree {
+  from {
+    transform: translateX(-80px);
+    opacity: 0;
+  }
+}
+.ligne.leader {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 201, 60, 0.22),
+    rgba(255, 201, 60, 0.04) 55%,
+    var(--panel)
+  );
+}
+.pos {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 56px;
+}
+.ligne.leader .pos {
+  color: var(--gold);
+}
+.delta {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 24px;
+}
+.monte {
+  color: var(--up);
+}
+.descend {
+  color: var(--down);
+}
+.stable {
+  color: var(--dim);
+}
+.pilote {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+  overflow: hidden;
+}
+.pilote > div {
+  min-width: 0;
+}
+.bande {
+  width: 8px;
+  height: 52px;
+  flex: none;
+  transform: skewX(-12deg);
+  background: var(--dim);
+}
+.nom {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 44px;
+  text-transform: uppercase;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rival {
+  font-size: 15px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  margin-top: 4px;
+}
+.badges {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+}
+.badge {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.12em;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.cible {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #120d00;
+}
+.joker {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.joker.utilise {
+  border-color: var(--line);
+  color: var(--dim);
+  text-decoration: line-through;
+}
+.derniere,
+.ecart,
+.points {
+  text-align: right;
+}
+.derniere {
+  font-family: var(--cond);
+  font-size: 30px;
+  color: var(--up);
+}
+.derniere.zero {
+  color: var(--dim);
+}
+.ecart {
+  font-family: var(--cond);
+  font-size: 30px;
+  color: var(--muted);
+}
+.ecart.enTete {
+  color: var(--gold);
+  font-size: 22px;
+  letter-spacing: 0.15em;
+}
+.points {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 60px;
+}
+
+/* Colonne de droite */
+.colonne {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+.panneau {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 22px 28px;
+}
+.titre {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 15px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.titre::before {
+  content: '';
+  width: 22px;
+  height: 4px;
+  background: linear-gradient(90deg, var(--red) 50%, var(--blue) 50%);
+}
+
+/* Équipes */
+.equipes {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+}
+.equipeNom {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 26px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.equipePoints {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 80px;
+  line-height: 0.95;
+}
+.equipeRouge {
+  color: var(--red);
+}
+.equipeBleu {
+  color: var(--blue);
+  text-align: right;
+}
+.vs {
+  font-family: var(--cond);
+  font-weight: 800;
+  color: var(--dim);
+  font-size: 30px;
+  padding: 0 20px 18px;
+}
+.barre {
+  display: flex;
+  height: 16px;
+  margin-top: 14px;
+  background: var(--line);
+  overflow: hidden;
+}
+.barre div {
+  transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.barreRouge {
+  background: var(--red);
+}
+.barreBleu {
+  background: var(--blue);
+}
+.avance {
+  margin-top: 10px;
+  font-size: 16px;
+  color: var(--muted);
+  text-align: center;
+  letter-spacing: 0.08em;
+}
+
+/* Prochaine manche */
+.prochaine {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+.mode {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 56px;
+  text-transform: uppercase;
+  line-height: 0.95;
+  transform: skewX(-8deg);
+  transform-origin: left;
+}
+.trace {
+  font-size: 22px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 22px;
+  margin-top: 14px;
+  font-size: 20px;
+}
+.details dt {
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 15px;
+  align-self: center;
+}
+.details dd {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 26px;
+}
+.or {
+  color: var(--gold);
+}
+.pastille {
+  display: inline-block;
+  padding: 2px 12px;
+  margin-right: 6px;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 20px;
+  text-transform: uppercase;
+}
+.pastilleRouge {
+  background: var(--red);
+}
+.pastilleBleu {
+  background: var(--blue);
+}
+
+/* Rivalités : les 4 paires doivent tenir sous la carte « Prochaine manche ». */
+.rivalites {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 18px;
+  padding-bottom: 14px;
+}
+.rivalites .titre {
+  margin-bottom: 6px;
+}
+.rivalite {
+  display: grid;
+  grid-template-columns: 1fr 120px 1fr;
+  align-items: center;
+  padding: 1px 0;
+  border-top: 1px solid var(--line);
+}
+.titre + .rivalite {
+  border-top: 0;
+}
+.rivaliteA,
+.rivaliteB {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.rivaliteA {
+  color: var(--red);
+}
+.rivaliteB {
+  color: var(--blue);
+  text-align: right;
+}
+.bilan {
+  text-align: center;
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 28px;
+}
+.bilan i {
+  font-style: normal;
+  color: var(--dim);
+  padding: 0 6px;
+}
+.vide {
+  color: var(--dim);
+  font-size: 20px;
+}
+
+/* Ticker */
+.ticker {
+  display: flex;
+  align-items: stretch;
+  background: #0a0e14;
+  border-top: 1px solid var(--line);
+  overflow: hidden;
+}
+.direct {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 26px;
+  background: var(--red);
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 24px;
+  letter-spacing: 0.15em;
+}
+.direct::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  animation: flash 1s steps(1) infinite;
+}
+.defilement {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+.bandeau {
+  display: flex;
+  white-space: nowrap;
+  animation: defile 55s linear infinite;
+}
+.bandeau span {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 26px;
+  padding: 0 34px;
+  color: var(--text);
+}
+.bandeau span::after {
+  content: '◆';
+  color: var(--dim);
+  font-size: 14px;
+  margin-left: 68px;
+  vertical-align: middle;
+}
+@keyframes defile {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ── Vue face-à-face ───────────────────────────── */
+.duel {
+  position: absolute;
+  inset: 8px 0 0 0;
+  display: grid;
+  grid-template-columns: 1fr 420px 1fr;
+  align-items: center;
+  background: var(--bg);
+  z-index: 5;
+  animation: fondu 0.4s ease both;
+}
+@keyframes fondu {
+  from {
+    opacity: 0;
+  }
+}
+.cote {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 90px;
+}
+.coteRouge {
+  background: linear-gradient(100deg, rgba(255, 45, 70, 0.35), transparent 85%);
+}
+.coteBleu {
+  background: linear-gradient(260deg, rgba(45, 123, 255, 0.35), transparent 85%);
+  text-align: right;
+}
+.etiquette {
+  font-size: 20px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.grandNom {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: var(--fs, 170px);
+  white-space: nowrap;
+  line-height: 0.9;
+  text-transform: uppercase;
+  transform: skewX(-8deg);
+}
+.coteRouge .grandNom {
+  color: var(--red);
+}
+.coteBleu .grandNom {
+  color: var(--blue);
+}
+.stats {
+  display: flex;
+  gap: 50px;
+  margin-top: 30px;
+}
+.coteBleu .stats {
+  justify-content: flex-end;
+}
+.stats div {
+  font-size: 18px;
+  color: var(--muted);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.stats sup {
+  text-transform: none;
+  font-size: 0.5em;
+}
+.stats b {
+  display: block;
+  font-family: var(--cond);
+  font-size: 64px;
+  color: var(--text);
+  letter-spacing: 0;
+}
+.milieu {
+  text-align: center;
+}
+.versus {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 150px;
+  color: var(--gold);
+  transform: skewX(-8deg);
+}
+.faceAFace {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 56px;
+}
+.milieu small {
+  display: block;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+  font-size: 16px;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+.format {
+  margin-top: 30px;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 22px;
+  border: 1px solid var(--line);
+  padding: 8px 14px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.aide {
+  position: fixed;
+  right: 12px;
+  bottom: 10px;
+  font:
+    12px var(--body),
+    sans-serif;
+  color: #444;
+  z-index: 9;
+}

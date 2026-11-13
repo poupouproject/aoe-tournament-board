@@ -1,0 +1,25 @@
+# dépendances
+node_modules/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# variables d'environnement (l'exemple, lui, est versionné)
+.env
+.env.*
+!.env.example
+
+# client Prisma généré (recréé par `prisma generate`)
+src/generated/
+
+# bases SQLite locales
+*.db
+*.db-journal
+
+# divers
+.DS_Store
+npm-debug.log*
+.vercel

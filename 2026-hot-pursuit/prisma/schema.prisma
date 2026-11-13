@@ -1,0 +1,57 @@
+// Schéma du scoreboard Hot Pursuit.
+//
+// La base ne stocke que ce qui est saisi : les joueurs, l'horaire des manches
+// et le résultat brut de chaque manche jouée. Les points, le classement et les
+// scores d'équipe ne sont jamais stockés : le moteur (src/lib/tournoi/moteur.ts)
+// les recalcule à partir des résultats à chaque affichage.
+//
+// SQLite ne supporte pas les `enum` Prisma : les champs d'énumération sont des
+// String, validés par les schémas Zod de src/lib/tournoi/schemas.ts.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// Un pilote du tournoi.
+model Joueur {
+  /// Identifiant court et stable (ex. « jo »), utilisé dans les résultats.
+  id      String  @id
+  nom     String
+  /// « rouge » | « bleu ». Vide jusqu'au draft, qui suit les qualifications.
+  equipe  String?
+  /// Rival tiré au sort après le draft, toujours dans l'équipe adverse.
+  rivalId String?
+  /// Ordre d'affichage (et ordre des duels : le n-ième joueur rouge et son rival).
+  ordre   Int     @default(0)
+}
+
+/// Une manche de l'horaire (21 au total). Le tracé reste modifiable :
+/// le dernier au classement choisit celui de la manche suivante.
+model Manche {
+  numero   Int       @id
+  /// « qualif » | « race » | « hp » | « duel »
+  type     String
+  bloc     String
+  trace    String
+  /// Finale : tous les points sont doublés, jokers interdits.
+  finale   Boolean   @default(false)
+  /// Hot Pursuit : équipe qui joue les cops (« rouge » | « bleu »).
+  cops     String?
+  /// Duel : index de la paire de rivaux (0 à 3).
+  duel     Int?
+  resultat Resultat?
+}
+
+/// Le résultat saisi d'une manche, tel quel (ordre d'arrivée, busts, jokers…).
+model Resultat {
+  mancheNumero Int      @id
+  manche       Manche   @relation(fields: [mancheNumero], references: [numero], onDelete: Cascade)
+  /// JSON validé par `resultatSchema` (src/lib/tournoi/schemas.ts).
+  donnees      String
+  creeLe       DateTime @default(now())
+}

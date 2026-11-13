@@ -76,7 +76,7 @@ button:disabled {
     right: 20px;
     top: 50%;
     transform: translateY(-50%);
-    width: 300px; /* ou la largeur que vous préférez pour votre tableau */
+    width: 600px; /* ou la largeur que vous préférez pour votre tableau */
     background: url('images/parchment-texture.jpg'); /* Image de fond thématique */
     border-radius: 25px;
     border: 3px solid #4e4b4b; /* Une bordure pour le tableau, peut-être quelque chose qui ressemble à de la pierre ou du bois */
@@ -84,6 +84,16 @@ button:disabled {
     color: #2e2e2e; /* Couleur de texte qui contraste bien avec votre arrière-plan */
     font-weight: bold;
     z-index: 1; /* ou une valeur inférieure à celle des autres éléments avec lesquels il se superpose */
+}
+.player {
+    margin: 10px 0;
+    padding: 5px;
+    background-color: #f0f0f0;
+    cursor: pointer;
+}
+
+.player:hover {
+    background-color: #e0e0e0;
 }
 
 #scoreboard table {
@@ -121,7 +131,7 @@ button:disabled {
 
 #matches th, #matches td {
     padding: 10px; /* espace autour du texte dans les cellules */
-    text-align: left; /* aligner le texte à gauche */
+    text-align: center; /* aligner le texte à gauche */
 }
 
 #matches th {
@@ -148,3 +158,40 @@ button:disabled {
     padding: 5px 10px; /* espace intérieur */
     cursor: default; /* le curseur par défaut, car ce n'est pas un bouton cliquable */
 }
+
+/* Style pour la fenêtre modale */
+.modal {
+    display: none; /* Caché par défaut */
+    position: fixed; /* Rester en place */
+    z-index: 1; /* Se situer au-dessus de tout */
+    left: 0;
+    top: 0;
+    width: 100%; /* Pleine largeur */
+    height: 100%; /* Pleine hauteur */
+    overflow: auto; /* Activer le défilement si nécessaire */
+    background-color: rgba(0,0,0,0.4); /* Couleur de fond avec opacité */
+  }
+  
+  /* Style pour le contenu de la fenêtre modale */
+  .modal-content {
+    background-color: #fefefe;
+    margin: 15% auto; /* 15% depuis le haut et centré */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; /* Peut varier en fonction de la largeur de contenu souhaitée */
+  }
+  
+  /* Style pour le bouton de fermeture */
+  .close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+  }
+  
+  .close:hover,
+  .close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+  }
