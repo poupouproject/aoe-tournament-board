@@ -10,10 +10,13 @@ export const equipeSchema = z.enum(['rouge', 'bleu']);
 const idJoueur = z.string().min(1);
 const jokers = z.array(idJoueur).optional();
 
-/** Qualifs : classement cumulé des 3 Races, du 1er au dernier. */
+/**
+ * Qualifs : l'ordre d'arrivée de chaque Race (1 à 3), du 1er au dernier.
+ * Le moteur en fait le classement cumulé.
+ */
 export const resultatQualifSchema = z.object({
   type: z.literal('qualif'),
-  ordre: z.array(idJoueur).min(2),
+  races: z.array(z.array(idJoueur).min(2)).min(1).max(3),
   jokers,
 });
 
@@ -47,6 +50,26 @@ export const resultatSchema = z.discriminatedUnion('type', [
   resultatHpSchema,
   resultatDuelSchema,
 ]);
+
+/**
+ * Convertit un résultat relu de la base vers le format courant. Les qualifs
+ * étaient saisies en un seul ordre cumulé (`ordre`) ; elles deviennent une
+ * liste de Races (`races`), dont le cumul redonne le même classement.
+ */
+export function migrerResultat(brut: unknown): unknown {
+  if (
+    typeof brut === 'object' &&
+    brut !== null &&
+    'type' in brut &&
+    brut.type === 'qualif' &&
+    'ordre' in brut &&
+    !('races' in brut)
+  ) {
+    const { ordre, ...reste } = brut;
+    return { ...reste, races: [ordre] };
+  }
+  return brut;
+}
 
 const mancheBase = {
   numero: z.number().int().min(1),

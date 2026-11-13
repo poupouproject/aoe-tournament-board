@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 
 import { cx } from '@/lib/cx';
 import { NOMS_EQUIPES } from '@/lib/tournoi/moteur';
 import type { ContexteSaisie } from '@/lib/tournoi/saisie';
+import { texteGains } from '@/lib/tournoi/saisie';
 import type { Manche } from '@/lib/tournoi/types';
 
 import type { Retour } from './actions';
@@ -16,7 +17,14 @@ import {
   renommerJoueurs,
 } from './actions';
 import { Bloc, BoutonPrincipal } from './commun';
-import { FormulaireClassement, FormulaireDraft, FormulaireDuel, FormulaireHp } from './formulaires';
+import type { Envoyer } from './formulaires';
+import {
+  FormulaireDraft,
+  FormulaireDuel,
+  FormulaireHp,
+  FormulaireQualif,
+  FormulaireRace,
+} from './formulaires';
 
 const MODES: Record<Manche['type'], string> = {
   qualif: 'Qualifications',
@@ -25,18 +33,46 @@ const MODES: Record<Manche['type'], string> = {
   duel: 'Duel Interceptor',
 };
 
-type Message = { ok: boolean; texte: string } | null;
+type Message = { ok: boolean; texte: string; details: string[] } | null;
+
+/** Durée d'affichage d'un succès ; plus long quand il y a un résumé à lire. Une erreur reste. */
+const DUREE_SUCCES_MS = 4000;
+const DUREE_RESUME_MS = 8000;
 
 /** Écran de saisie : la prochaine manche, et les outils autour (draft, noms, annuler). */
 export function EcranSaisie({ ctx }: { ctx: ContexteSaisie }) {
   const [message, setMessage] = useState<Message>(null);
   const [enCours, demarrer] = useTransition();
+  const minuterie = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const afficher = (m: Message): void => {
+    clearTimeout(minuterie.current);
+    setMessage(m);
+    if (m?.ok) {
+      minuterie.current = setTimeout(
+        () => {
+          setMessage(null);
+        },
+        m.details.length > 0 ? DUREE_RESUME_MS : DUREE_SUCCES_MS,
+      );
+    }
+  };
 
   /** Appelle une Server Action et affiche le résultat en haut de l'écran. */
   const envoyer = (action: () => Promise<Retour>, succes: string): void => {
     demarrer(async () => {
       const retour = await action();
-      setMessage(retour.ok ? { ok: true, texte: succes } : { ok: false, texte: retour.erreur });
+      afficher(
+        retour.ok
+          ? {
+              ok: true,
+              texte: succes,
+              details: retour.resume
+                ? [texteGains(retour.resume.gains), ...retour.resume.journal]
+                : [],
+            }
+          : { ok: false, texte: retour.erreur, details: [] },
+      );
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   };
@@ -48,18 +84,28 @@ export function EcranSaisie({ ctx }: { ctx: ContexteSaisie }) {
 
   return (
     <main className="mx-auto flex max-w-md flex-col gap-6 px-4 pt-6 pb-16">
+      {/* Dans le flux, en haut : il pousse le contenu au lieu de le recouvrir. */}
       {message && (
         <button
           type="button"
+          aria-live="polite"
           onClick={() => {
-            setMessage(null);
+            afficher(null);
           }}
           className={cx(
-            'sticky top-2 z-10 px-4 py-3 text-left font-semibold',
+            'flex flex-col gap-1 px-4 py-3 text-left',
             message.ok ? 'bg-[#2ee59d] text-[#04130c]' : 'bg-rouge text-white',
           )}
         >
-          {message.texte}
+          <span className="font-semibold">{message.texte}</span>
+          {message.details.map((d) => (
+            <span key={d} className="text-sm">
+              {d}
+            </span>
+          ))}
+          <span className="text-xs opacity-70">
+            {message.ok ? 'Une erreur ? Annulez la manche en bas.' : 'Toucher pour fermer'}
+          </span>
         </button>
       )}
 
@@ -141,18 +187,14 @@ function Formulaire({
   ctx: ContexteSaisie;
   manche: Manche;
   enCours: boolean;
-  envoyer: Parameters<typeof FormulaireClassement>[0]['envoyer'];
+  envoyer: Envoyer;
 }) {
   switch (manche.type) {
     case 'qualif':
+      return <FormulaireQualif joueurs={ctx.joueurs} enCours={enCours} envoyer={envoyer} />;
     case 'race':
       return (
-        <FormulaireClassement
-          manche={manche}
-          joueurs={ctx.joueurs}
-          enCours={enCours}
-          envoyer={envoyer}
-        />
+        <FormulaireRace manche={manche} joueurs={ctx.joueurs} enCours={enCours} envoyer={envoyer} />
       );
     case 'hp':
       return (

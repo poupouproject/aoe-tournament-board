@@ -57,6 +57,30 @@ export function classement(etats: ReadonlyMap<string, EtatJoueur>): EtatJoueur[]
   );
 }
 
+/**
+ * Classement cumulé des qualifs : la plus petite somme des positions passe en
+ * tête ; à égalité, la meilleure position à la dernière Race jouée, puis l'id.
+ */
+export function classementQualif(races: readonly (readonly string[])[]): string[] {
+  const somme = new Map<string, number>();
+  for (const race of races) {
+    race.forEach((id, rang) => {
+      somme.set(id, (somme.get(id) ?? 0) + rang + 1);
+    });
+  }
+  const derniere = races[races.length - 1] ?? [];
+  const rangFinal = (id: string): number => {
+    const rang = derniere.indexOf(id);
+    return rang < 0 ? Infinity : rang;
+  };
+  return [...somme.keys()].sort(
+    (a, b) =>
+      (somme.get(a) ?? 0) - (somme.get(b) ?? 0) ||
+      rangFinal(a) - rangFinal(b) ||
+      a.localeCompare(b),
+  );
+}
+
 /** Calcule l'état du tournoi après les `n` premières manches (toutes par défaut). */
 export function calculer(
   tournoi: Tournoi,
@@ -107,10 +131,11 @@ export function calculer(
 
     switch (resultat.type) {
       case 'qualif': {
-        resultat.ordre.forEach((id, rang) => {
+        const ordre = classementQualif(resultat.races);
+        ordre.forEach((id, rang) => {
           gagner(id, BAREME.qualif[rang] ?? 0);
         });
-        const premier = resultat.ordre[0];
+        const premier = ordre[0];
         if (premier) messages.push(`${nom(premier)} remporte les qualifications`);
         break;
       }

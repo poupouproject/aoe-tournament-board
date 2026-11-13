@@ -5,10 +5,12 @@ import { z } from 'zod';
 
 import { prisma } from '@/lib/prisma';
 import { chargerTournoi } from '@/lib/tournoi/donnees';
-import { validerDraft, validerResultat } from '@/lib/tournoi/saisie';
+import type { ResumeManche } from '@/lib/tournoi/saisie';
+import { resumeManche, validerDraft, validerResultat } from '@/lib/tournoi/saisie';
 import { equipeSchema, resultatSchema } from '@/lib/tournoi/schemas';
 
-export type Retour = { ok: true } | { ok: false; erreur: string };
+/** Retour d'une action ; `resume` accompagne une manche enregistrée. */
+export type Retour = { ok: true; resume?: ResumeManche } | { ok: false; erreur: string };
 
 const echec = (erreur: string): Retour => ({ ok: false, erreur });
 
@@ -34,7 +36,7 @@ export async function enregistrerResultat(donnees: unknown): Promise<Retour> {
     return echec('Cette manche vient d’être saisie sur un autre appareil.');
   }
   refresh();
-  return { ok: true };
+  return { ok: true, resume: resumeManche(tournoi, [...resultats, lecture.data]) };
 }
 
 /** Annule la dernière manche saisie (une erreur de saisie va arriver). */

@@ -18,7 +18,15 @@ export const JOUEURS_DEMO: readonly Joueur[] = [
 ];
 
 export const RESULTATS_DEMO: readonly Resultat[] = [
-  { type: 'qualif', ordre: ['max', 'jo', 'seb', 'ben', 'kev', 'fred', 'oli', 'alex'] },
+  // Cumul des positions : max 4, jo 6, seb 9, ben 12, kev 15, fred 18, oli 21, alex 23.
+  {
+    type: 'qualif',
+    races: [
+      ['jo', 'max', 'seb', 'kev', 'ben', 'fred', 'alex', 'oli'],
+      ['max', 'seb', 'jo', 'ben', 'fred', 'kev', 'oli', 'alex'],
+      ['max', 'jo', 'ben', 'seb', 'kev', 'oli', 'fred', 'alex'],
+    ],
+  },
   { type: 'race', ordre: ['jo', 'max', 'ben', 'seb', 'fred', 'kev', 'alex', 'oli'] },
   {
     type: 'race',
