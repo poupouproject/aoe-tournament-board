@@ -12,6 +12,8 @@ import { HORAIRE } from '../src/lib/tournoi/horaire';
 import type { Tournoi } from '../src/lib/tournoi/types';
 import { construireVue, MESSAGES_FIXES } from '../src/lib/tournoi/vue';
 
+import { resultatsComplets } from './outils/tournoi-complet';
+
 const DEMO: Tournoi = { joueurs: JOUEURS_DEMO, manches: HORAIRE };
 
 describe('vue après les 9 manches de la démo (parité avec la maquette)', () => {
@@ -90,6 +92,7 @@ describe('vue en cours de journée', () => {
       finale: false,
       cible: 'Jonathan',
       jokersRestants: 8,
+      choisiPar: 'Olivier',
     });
   });
 
@@ -106,7 +109,37 @@ describe('vue en cours de journée', () => {
       trace: 'Canyon rouge',
       finale: false,
       cops: 'rouge',
+      choisiPar: 'Olivier',
     });
+  });
+
+  it('nomme le dernier au classement pour le choix du tracé (rattrapage)', () => {
+    const vue = construireVue(DEMO, RESULTATS_DEMO.slice(0, 5));
+    const dernier = vue.lignes.at(-1)?.nom;
+    assert.ok(dernier);
+    assert.equal(vue.prochaine?.type === 'race' ? vue.prochaine.choisiPar : null, dernier);
+  });
+});
+
+describe('vue en fin de tournoi', () => {
+  const vue = construireVue(DEMO, resultatsComplets(DEMO));
+
+  it('termine après les 21 manches', () => {
+    assert.equal(vue.nbJouees, 21);
+    assert.equal(vue.prochaine, null);
+    assert.equal(vue.prochainBloc, null);
+  });
+
+  it('donne le podium et les scores finaux des équipes', () => {
+    assert.deepEqual(
+      vue.lignes.slice(0, 3).map((l) => [l.nom, l.points]),
+      [
+        ['Jonathan', 133],
+        ['Max', 133],
+        ['Ben', 120],
+      ],
+    );
+    assert.deepEqual(vue.equipes, { rouge: 365, bleu: 359 });
   });
 });
 
@@ -122,6 +155,16 @@ describe('vue avant le draft', () => {
     assert.ok(vue.lignes.every((l) => !l.leader && l.variation === 0));
     assert.deepEqual(vue.ticker, [...MESSAGES_FIXES]);
     assert.equal(vue.prochaine?.type, 'qualif');
+  });
+
+  it('ne nomme personne pour le tracé tant qu’il n’y a pas de classement', () => {
+    const avant = construireVue(avantDraft, []);
+    assert.equal(avant.prochaine?.type, 'qualif');
+    const apresQualifs = construireVue(DEMO, RESULTATS_DEMO.slice(0, 1));
+    assert.equal(
+      apresQualifs.prochaine?.type === 'race' ? apresQualifs.prochaine.choisiPar : undefined,
+      'Alex',
+    );
   });
 
   it('n’a ni rivalités ni duel tant que les rivaux ne sont pas tirés', () => {

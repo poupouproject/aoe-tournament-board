@@ -34,8 +34,10 @@ export type CarteProchaine =
       finale: boolean;
       cible: string | null;
       jokersRestants: number;
+      /** Rattrapage : le dernier au classement choisit le tracé. */
+      choisiPar: string | null;
     }
-  | { type: 'hp'; trace: string; finale: boolean; cops: Equipe }
+  | { type: 'hp'; trace: string; finale: boolean; cops: Equipe; choisiPar: string | null }
   | {
       type: 'duel';
       trace: string;
@@ -112,6 +114,8 @@ export function construireVue(tournoi: Tournoi, resultats: readonly Resultat[]):
   });
 
   const leader = aUnLeader ? (lignes[0] ?? null) : null;
+  // Rattrapage : le dernier au classement choisit le tracé, dès qu'il y a un classement.
+  const choisiPar = aUnLeader ? (lignes.at(-1)?.nom ?? null) : null;
   const paires = pairesDeRivaux(tournoi.joueurs);
   const rivalites: Rivalite[] = paires.map(([a, b]) => ({
     a: nom(a),
@@ -134,10 +138,11 @@ export function construireVue(tournoi: Tournoi, resultats: readonly Resultat[]):
           type: 'race',
           cible: leader?.nom ?? null,
           jokersRestants: table.filter((e) => !e.jokerUtilise).length,
+          choisiPar,
         };
         break;
       case 'hp':
-        prochaine = { ...base, type: 'hp', cops: manche.cops };
+        prochaine = { ...base, type: 'hp', cops: manche.cops, choisiPar };
         break;
       case 'duel': {
         const paire = paires[manche.duel];
