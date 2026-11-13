@@ -10,7 +10,7 @@ import { describe, it } from 'node:test';
 
 import { JOUEURS_DEMO, RESULTATS_DEMO } from '../src/lib/tournoi/demo';
 import { HORAIRE } from '../src/lib/tournoi/horaire';
-import { calculer, classement, pairesDeRivaux } from '../src/lib/tournoi/moteur';
+import { calculer, classement, classementQualif, pairesDeRivaux } from '../src/lib/tournoi/moteur';
 import type { Joueur, Manche, Resultat, Tournoi } from '../src/lib/tournoi/types';
 
 const DEMO: Tournoi = { joueurs: JOUEURS_DEMO, manches: HORAIRE };
@@ -143,7 +143,63 @@ function tournoi(...types: (Manche['type'] | 'finale')[]): Tournoi {
   return { joueurs: J4, manches };
 }
 
-const qualif: Resultat = { type: 'qualif', ordre: ['a', 'b', 'c', 'd'] };
+const qualif: Resultat = { type: 'qualif', races: [['a', 'b', 'c', 'd']] };
+
+describe('Qualifs', () => {
+  it('cumule les positions des 3 Races', () => {
+    assert.deepEqual(
+      classementQualif([
+        ['a', 'b', 'c', 'd'],
+        ['c', 'a', 'b', 'd'],
+        ['a', 'c', 'd', 'b'],
+      ]),
+      // a 1+2+1 = 4 ; c 3+1+2 = 6 ; b 2+3+4 = 9 ; d 4+4+3 = 11
+      ['a', 'c', 'b', 'd'],
+    );
+  });
+
+  it('départage une égalité par la dernière Race, puis par id', () => {
+    // a et b : 3 points chacun ; b est devant à la dernière Race.
+    assert.deepEqual(
+      classementQualif([
+        ['a', 'b'],
+        ['b', 'a'],
+      ]),
+      ['b', 'a'],
+    );
+    // Une seule Race : pas d'égalité possible, l'ordre est repris tel quel.
+    assert.deepEqual(classementQualif([['d', 'c', 'b', 'a']]), ['d', 'c', 'b', 'a']);
+  });
+
+  it('applique le barème qualif au classement cumulé', () => {
+    const p = points(tournoi('qualif'), [
+      {
+        type: 'qualif',
+        races: [
+          ['a', 'b', 'c', 'd'],
+          ['c', 'a', 'b', 'd'],
+          ['a', 'c', 'd', 'b'],
+        ],
+      },
+    ]);
+    assert.deepEqual(p, { a: 8, b: 6, c: 7, d: 5 });
+  });
+
+  it('retrouve, pour la démo, le classement de la maquette', () => {
+    const [qualifDemo] = RESULTATS_DEMO;
+    assert.equal(qualifDemo?.type, 'qualif');
+    assert.deepEqual(classementQualif(qualifDemo.races), [
+      'max',
+      'jo',
+      'seb',
+      'ben',
+      'kev',
+      'fred',
+      'oli',
+      'alex',
+    ]);
+  });
+});
 
 describe('Race', () => {
   it('applique le barème, la prime sur le leader et le bonus rival', () => {

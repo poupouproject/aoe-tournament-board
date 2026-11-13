@@ -180,7 +180,10 @@ export function Jokers({
   const disponibles = joueurs.filter((j) => j.jokerDisponible);
   if (disponibles.length === 0) return null;
   return (
-    <Bloc titre="Jokers" consigne="Qui a annoncé son joker avant le départ ? (points ×2)">
+    <Bloc
+      titre="Jokers"
+      consigne="Annoncés avant le départ : qui joue son joker sur cette manche ? (points ×2)"
+    >
       <div className="flex flex-wrap gap-2">
         {disponibles.map((j) => {
           const actif = choisis.includes(j.id);

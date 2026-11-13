@@ -140,7 +140,12 @@ export function Prochaine({
       {carte ? (
         <>
           <div className={s.mode}>{MODES[carte.type]}</div>
-          <div className={s.trace}>{carte.trace}</div>
+          <div className={s.trace}>
+            {carte.trace}
+            {(carte.type === 'race' || carte.type === 'hp') && carte.choisiPar && (
+              <span className={s.choisiPar}> · choisi par {carte.choisiPar}</span>
+            )}
+          </div>
           <Details carte={carte} />
         </>
       ) : (

@@ -203,6 +203,10 @@
   background: var(--panel);
   position: relative;
   clip-path: polygon(16px 0, 100% 0, calc(100% - 16px) 100%, 0 100%);
+}
+/* L'entrée ne joue qu'à l'ouverture : React déplace les lignes dans le DOM
+   quand le classement change, et l'animation ne doit pas rejouer alors. */
+.entree .ligne {
   animation: entree 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   animation-delay: calc(var(--i) * 70ms);
 }
@@ -599,7 +603,8 @@
   position: absolute;
   inset: 8px 0 0 0;
   display: grid;
-  grid-template-columns: 1fr 420px 1fr;
+  /* minmax(0, …) : un nom très long rapetisse au lieu d'élargir sa colonne. */
+  grid-template-columns: minmax(0, 1fr) 420px minmax(0, 1fr);
   align-items: center;
   background: var(--bg);
   z-index: 5;
@@ -612,6 +617,7 @@
 }
 .cote {
   height: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -633,7 +639,7 @@
 .grandNom {
   font-family: var(--cond);
   font-weight: 800;
-  font-size: var(--fs, 170px);
+  font-size: 170px;
   white-space: nowrap;
   line-height: 0.9;
   text-transform: uppercase;
@@ -705,13 +711,204 @@
   display: inline-block;
 }
 
+/* Aide des raccourcis : visible quelques secondes au chargement et après une touche. */
 .aide {
   position: fixed;
   right: 12px;
   bottom: 10px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.75);
   font:
-    12px var(--body),
+    13px var(--body),
     sans-serif;
-  color: #444;
+  color: #8a96a8;
   z-index: 9;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+.aideVisible {
+  opacity: 1;
+}
+
+/* ── Effets ────────────────────────────────────── */
+.texteRouge {
+  color: var(--red);
+}
+.texteBleu {
+  color: var(--blue);
+}
+.choisiPar {
+  color: var(--gold);
+}
+
+/* Points qui viennent de changer */
+.flash {
+  animation: flashPoints 1.6s ease-out both;
+}
+@keyframes flashPoints {
+  0%,
+  40% {
+    color: var(--gold);
+    text-shadow: 0 0 24px rgba(255, 201, 60, 0.8);
+    transform: scale(1.18);
+  }
+  100% {
+    color: var(--text);
+    text-shadow: none;
+    transform: none;
+  }
+}
+
+/* Bandeau « Nouveau leader » */
+.bandeauLeader {
+  position: absolute;
+  inset: 8px 0 64px 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 0 120px;
+  background:
+    radial-gradient(800px 500px at 50% 50%, rgba(255, 201, 60, 0.18), transparent 70%),
+    rgba(6, 8, 12, 0.94);
+  animation: bandeauEntree 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes bandeauEntree {
+  from {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+.bandeauLeader small {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 44px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.bandeauNom {
+  width: 100%;
+  text-align: center;
+  font-family: var(--cond);
+  font-weight: 800;
+  line-height: 0.95;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  transform: skewX(-8deg);
+}
+.bandeauGyro {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 60%;
+  height: 14px;
+}
+.bandeauGyro span:first-child {
+  background: var(--red);
+  animation: flash 0.5s steps(1) infinite;
+}
+.bandeauGyro span:last-child {
+  background: var(--blue);
+  animation: flash 0.5s steps(1) infinite 0.25s;
+}
+
+/* ── Podium ────────────────────────────────────── */
+.podium {
+  display: flex;
+  flex-direction: column;
+  padding: 0 56px 24px;
+  min-height: 0;
+}
+.marches {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 28px;
+  padding: 0 80px;
+}
+.marche {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+.marcheNom {
+  width: 100%;
+  text-align: center;
+  font-family: var(--cond);
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  transform: skewX(-8deg);
+}
+.marchePoints {
+  margin: 6px 0 18px;
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.marcheBloc {
+  width: 100%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, var(--panel2), var(--panel));
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  font-size: 150px;
+  font-weight: 800;
+  color: var(--dim);
+  animation: marcheMonte 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: bottom;
+}
+.marcheOr .marcheBloc {
+  background: linear-gradient(180deg, rgba(255, 201, 60, 0.3), var(--panel) 80%);
+  border-color: rgba(255, 201, 60, 0.5);
+  color: var(--gold);
+}
+.marcheOr .marchePoints {
+  color: var(--gold);
+}
+@keyframes marcheMonte {
+  from {
+    transform: scaleY(0);
+  }
+}
+.vainqueurs {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 28px;
+  margin-top: 22px;
+  padding: 16px;
+  border-top: 1px solid var(--line);
+  font-family: var(--cond);
+  font-size: 38px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.vainqueurs .num {
+  font-size: 48px;
+  font-weight: 800;
+}
+
+/* Animations réduites à la demande du système. */
+@media (prefers-reduced-motion: reduce) {
+  .entree .ligne,
+  .flash,
+  .bandeauLeader,
+  .marcheBloc,
+  .bandeau {
+    animation: none;
+  }
+  .flash {
+    color: var(--gold);
+  }
 }

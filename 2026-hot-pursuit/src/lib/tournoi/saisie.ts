@@ -109,6 +109,14 @@ export function validerResultat(
 
   switch (resultat.type) {
     case 'qualif':
+      for (const [i, race] of resultat.races.entries()) {
+        if (!memesElements(race, ids)) {
+          return `Race ${String(i + 1)} : placez chaque pilote une seule fois.`;
+        }
+      }
+      if (resultat.jokers?.length) return 'Pas de joker en qualifs.';
+      break;
+
     case 'race':
       if (!memesElements(resultat.ordre, ids)) return 'Placez chaque pilote une seule fois.';
       break;
@@ -214,4 +222,47 @@ export function validerDraft(joueurs: readonly { id: string }[], draft: Draft): 
     return 'Chaque rouge doit avoir un rival bleu différent.';
   }
   return null;
+}
+
+export interface GainManche {
+  nom: string;
+  points: number;
+  joker: boolean;
+}
+
+/** Ce que la dernière manche a rapporté, pour vérifier la saisie d'un coup d'œil. */
+export interface ResumeManche {
+  numero: number;
+  /** Gains non nuls, du plus gros au plus petit. */
+  gains: GainManche[];
+  /** Faits marquants du moteur (vainqueur, prime, busts, jokers…). */
+  journal: string[];
+}
+
+/** Résume la dernière manche de `resultats` (celle qui vient d'être enregistrée). */
+export function resumeManche(tournoi: Tournoi, resultats: readonly Resultat[]): ResumeManche {
+  const n = resultats.length;
+  const apres = calculer(tournoi, resultats, n);
+  const avant = calculer(tournoi, resultats, n - 1);
+  const gains = tournoi.joueurs
+    .map((j) => ({
+      nom: j.nom,
+      points: apres.etats.get(j.id)?.derniere ?? 0,
+      joker:
+        (apres.etats.get(j.id)?.jokerUtilise ?? false) &&
+        !(avant.etats.get(j.id)?.jokerUtilise ?? false),
+    }))
+    .filter((g) => g.points !== 0)
+    .sort((a, b) => b.points - a.points || a.nom.localeCompare(b.nom));
+  return {
+    numero: tournoi.manches[n - 1]?.numero ?? n,
+    gains,
+    journal: apres.journal,
+  };
+}
+
+/** « Seb +26 (joker) · Jonathan +9 · … » */
+export function texteGains(gains: readonly GainManche[]): string {
+  if (gains.length === 0) return 'Aucun point individuel.';
+  return gains.map((g) => `${g.nom} +${String(g.points)}${g.joker ? ' (joker)' : ''}`).join(' · ');
 }

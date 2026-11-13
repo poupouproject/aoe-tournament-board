@@ -1,22 +1,15 @@
-import type { CSSProperties } from 'react';
-
+import { cx } from '@/lib/cx';
 import { NOMS_EQUIPES } from '@/lib/tournoi/moteur';
 import type { CoteDuel, VueScoreboard } from '@/lib/tournoi/vue';
 
-import { cx } from '@/lib/cx';
-
 import s from './scoreboard.module.css';
+import { TexteAjuste } from './texte-ajuste';
 
 function Cote({ cote, classe }: { cote: CoteDuel; classe: string | undefined }) {
   return (
     <div className={cx(s.cote, classe)}>
       <div className={s.etiquette}>{cote.equipe ? `Équipe ${NOMS_EQUIPES[cote.equipe]}` : ' '}</div>
-      <div
-        className={s.grandNom}
-        style={{ '--fs': cote.nom.length > 6 ? '130px' : '170px' } as CSSProperties}
-      >
-        {cote.nom}
-      </div>
+      <TexteAjuste texte={cote.nom} max={170} min={56} className={s.grandNom} />
       <div className={s.stats}>
         <div>
           Position

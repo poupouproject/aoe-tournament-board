@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 
-import { adversaire, NOMS_EQUIPES } from '@/lib/tournoi/moteur';
+import { cx } from '@/lib/cx';
+import { adversaire, classementQualif, NOMS_EQUIPES } from '@/lib/tournoi/moteur';
 import type { ContexteSaisie, JoueurSaisie } from '@/lib/tournoi/saisie';
 import { gagnantHpParDefaut, membres, tirerRivaux } from '@/lib/tournoi/saisie';
 import type { Equipe, Manche, Resultat } from '@/lib/tournoi/types';
@@ -24,14 +25,14 @@ export type Envoyer = (resultat: Resultat) => void;
 const jokersOuRien = (jokers: string[]): { jokers?: string[] } =>
   jokers.length > 0 ? { jokers } : {};
 
-/** Qualifs et Race : l'ordre d'arrivée complet. */
-export function FormulaireClassement({
+/** Race : jokers annoncés, puis l'ordre d'arrivée complet. */
+export function FormulaireRace({
   manche,
   joueurs,
   enCours,
   envoyer,
 }: {
-  manche: Extract<Manche, { type: 'qualif' | 'race' }>;
+  manche: Extract<Manche, { type: 'race' }>;
   joueurs: readonly JoueurSaisie[];
   enCours: boolean;
   envoyer: Envoyer;
@@ -42,28 +43,123 @@ export function FormulaireClassement({
 
   return (
     <>
-      <Bloc
-        titre="Ordre d'arrivée"
-        consigne={
-          manche.type === 'qualif'
-            ? 'Classement cumulé des 3 Races : touchez les pilotes du 1er au dernier.'
-            : 'Touchez les pilotes du 1er au dernier.'
-        }
-      >
+      <Jokers joueurs={joueurs} choisis={jokers} finale={manche.finale} onChange={setJokers} />
+      <Bloc titre="Ordre d'arrivée" consigne="Touchez les pilotes du 1er au dernier.">
         <OrdreArrivee joueurs={joueurs} ordre={ordre} onChange={setOrdre} />
       </Bloc>
-      {manche.type === 'race' && (
-        <Jokers joueurs={joueurs} choisis={jokers} finale={manche.finale} onChange={setJokers} />
-      )}
       <BoutonPrincipal
         disabled={!complet || enCours}
         onClick={() => {
-          envoyer({ type: manche.type, ordre, ...jokersOuRien(jokers) });
+          envoyer({ type: 'race', ordre, ...jokersOuRien(jokers) });
         }}
       >
         {complet
           ? 'Enregistrer la manche'
           : `Encore ${String(joueurs.length - ordre.length)} à placer`}
+      </BoutonPrincipal>
+    </>
+  );
+}
+
+const NB_RACES_QUALIF = 3;
+
+/**
+ * Qualifs : les 3 Races s'enchaînent sur le même écran. Le classement cumulé
+ * (somme des positions) s'affiche dès qu'une Race est complète.
+ */
+export function FormulaireQualif({
+  joueurs,
+  enCours,
+  envoyer,
+}: {
+  joueurs: readonly JoueurSaisie[];
+  enCours: boolean;
+  envoyer: Envoyer;
+}) {
+  const [races, setRaces] = useState<string[][]>(() =>
+    Array.from({ length: NB_RACES_QUALIF }, () => []),
+  );
+  const [courante, setCourante] = useState(0);
+
+  const complete = (r: readonly string[]): boolean => r.length === joueurs.length;
+  const completes = races.filter(complete);
+  const entamee = races.findIndex((r) => r.length > 0 && !complete(r));
+  const pret = completes.length > 0 && entamee < 0;
+  const ordreCourant = races[courante] ?? [];
+
+  const changer = (ordre: string[]): void => {
+    setRaces(races.map((r, i) => (i === courante ? ordre : r)));
+    // Race terminée : on passe d'office à la suivante encore vide.
+    const suivante = races.findIndex((r, i) => i > courante && r.length === 0);
+    if (complete(ordre) && suivante >= 0) setCourante(suivante);
+  };
+
+  const nom = (id: string): string => joueurs.find((j) => j.id === id)?.nom ?? id;
+  const somme = (id: string): number => completes.reduce((s, r) => s + r.indexOf(id) + 1, 0);
+
+  return (
+    <>
+      <Bloc titre="Races de qualification" consigne="Saisissez chaque Race à la fin de sa course.">
+        <div className="grid grid-cols-3 gap-2">
+          {races.map((r, i) => (
+            <button
+              key={i}
+              type="button"
+              aria-pressed={i === courante}
+              onClick={() => {
+                setCourante(i);
+              }}
+              className={cx(
+                'font-cond border-ligne min-h-12 border text-lg font-bold uppercase',
+                i === courante ? 'bg-texte text-fond' : 'bg-panneau',
+              )}
+            >
+              Race {i + 1} {complete(r) ? '✓' : ''}
+            </button>
+          ))}
+        </div>
+      </Bloc>
+
+      <Bloc
+        titre={`Race ${String(courante + 1)} · ordre d'arrivée`}
+        consigne="Touchez les pilotes du 1er au dernier."
+      >
+        <OrdreArrivee joueurs={joueurs} ordre={ordreCourant} onChange={changer} />
+      </Bloc>
+
+      {completes.length > 0 && (
+        <Bloc
+          titre={`Classement cumulé · ${String(completes.length)} Race${completes.length > 1 ? 's' : ''}`}
+          consigne="Somme des positions : la plus petite gagne. Égalité : la meilleure à la dernière Race."
+        >
+          <ol className="bg-panneau border-ligne flex flex-col border">
+            {classementQualif(completes).map((id, i) => (
+              <li
+                key={id}
+                className="border-ligne flex items-center gap-3 border-t px-3 py-2 first:border-t-0"
+              >
+                <span className="font-cond w-6 text-xl font-extrabold">{i + 1}</span>
+                <span className="font-cond flex-1 text-lg font-bold uppercase">{nom(id)}</span>
+                <span className="text-attenue text-sm">{somme(id)} pts de position</span>
+              </li>
+            ))}
+          </ol>
+        </Bloc>
+      )}
+
+      <BoutonPrincipal
+        disabled={!pret || enCours}
+        onClick={() => {
+          envoyer({ type: 'qualif', races: completes });
+        }}
+      >
+        {entamee >= 0
+          ? `Terminez la Race ${String(entamee + 1)}`
+          : completes.length === NB_RACES_QUALIF
+            ? 'Enregistrer les qualifs'
+            : completes.length > 0
+              ? `Enregistrer avec ${String(completes.length)} Race${completes.length > 1 ? 's' : ''}`
+              : 'Saisissez la Race 1'}
       </BoutonPrincipal>
     </>
   );
@@ -89,6 +185,8 @@ export function FormulaireHp({
   const [busts, setBusts] = useState<Record<string, number>>({});
   const [gagnantChoisi, setGagnant] = useState<'cops' | 'racers' | null>(null);
   const [jokers, setJokers] = useState<string[]>([]);
+  // L'écart busts / bustés ne s'affiche qu'une fois la saisie commencée.
+  const [touche, setTouche] = useState(false);
 
   const bustes = racers.filter((r) => !echappes.includes(r.id));
   const totalBusts = Object.values(busts).reduce((s, n) => s + n, 0);
@@ -97,11 +195,20 @@ export function FormulaireHp({
 
   return (
     <>
+      <Jokers joueurs={joueurs} choisis={jokers} finale={manche.finale} onChange={setJokers} />
+
       <Bloc
         titre={`Racers · ${NOMS_EQUIPES[camps.racers]}`}
         consigne="Touchez ceux qui se sont échappés, dans l'ordre d'arrivée. Les autres sont bustés."
       >
-        <OrdreArrivee joueurs={racers} ordre={echappes} onChange={setEchappes} />
+        <OrdreArrivee
+          joueurs={racers}
+          ordre={echappes}
+          onChange={(ordre) => {
+            setEchappes(ordre);
+            setTouche(true);
+          }}
+        />
         <p className="text-attenue text-sm">
           Bustés : {bustes.length ? bustes.map((r) => r.nom).join(', ') : 'personne'}
         </p>
@@ -119,10 +226,11 @@ export function FormulaireHp({
             valeur={busts[c.id] ?? 0}
             onChange={(n) => {
               setBusts({ ...busts, [c.id]: n });
+              setTouche(true);
             }}
           />
         ))}
-        {totalBusts !== bustes.length && (
+        {touche && totalBusts !== bustes.length && (
           <p className="text-or text-sm">
             {totalBusts} bust{totalBusts > 1 ? 's' : ''} pour {bustes.length} racer
             {bustes.length > 1 ? 's' : ''} busté{bustes.length > 1 ? 's' : ''}.
@@ -148,8 +256,6 @@ export function FormulaireHp({
           ]}
         />
       </Bloc>
-
-      <Jokers joueurs={joueurs} choisis={jokers} finale={manche.finale} onChange={setJokers} />
 
       <BoutonPrincipal
         disabled={enCours}
@@ -201,6 +307,12 @@ export function FormulaireDuel({
 
   return (
     <>
+      <Jokers
+        joueurs={joueurs.filter((j) => j.id === a || j.id === b)}
+        choisis={jokers}
+        finale={false}
+        onChange={setJokers}
+      />
       <Bloc titre="Manche 1" consigne="Qui a gagné ?">
         <Choix valeur={manche1} onChange={setManche1} options={options} />
       </Bloc>
@@ -215,12 +327,6 @@ export function FormulaireDuel({
           <Choix valeur={bris} onChange={setBris} options={options} />
         </Bloc>
       )}
-      <Jokers
-        joueurs={joueurs.filter((j) => j.id === a || j.id === b)}
-        choisis={jokers}
-        finale={false}
-        onChange={setJokers}
-      />
       <BoutonPrincipal
         disabled={!pret || enCours}
         onClick={() => {
