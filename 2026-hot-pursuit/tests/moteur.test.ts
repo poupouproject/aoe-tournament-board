@@ -9,9 +9,15 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { JOUEURS_DEMO, RESULTATS_DEMO } from '../src/lib/tournoi/demo';
-import { HORAIRE } from '../src/lib/tournoi/horaire';
-import { calculer, classement, classementQualif, pairesDeRivaux } from '../src/lib/tournoi/moteur';
-import type { Joueur, Manche, Resultat, Tournoi } from '../src/lib/tournoi/types';
+import { HORAIRE, horairePour } from '../src/lib/tournoi/horaire';
+import {
+  calculer,
+  classement,
+  classementQualif,
+  facteurEquipe,
+  pairesDeRivaux,
+} from '../src/lib/tournoi/moteur';
+import type { Equipe, Joueur, Manche, Resultat, Tournoi } from '../src/lib/tournoi/types';
 
 const DEMO: Tournoi = { joueurs: JOUEURS_DEMO, manches: HORAIRE };
 
@@ -136,6 +142,8 @@ function tournoi(...types: (Manche['type'] | 'finale')[]): Tournoi {
         return { ...base, type: 'race', finale: true };
       case 'hp':
         return { ...base, type: 'hp', cops: 'rouge' };
+      case 'ep':
+        return { ...base, type: 'ep', cops: 'rouge' };
       case 'duel':
         return { ...base, type: 'duel', duel: 0 };
     }
@@ -171,7 +179,7 @@ describe('Qualifs', () => {
     assert.deepEqual(classementQualif([['d', 'c', 'b', 'a']]), ['d', 'c', 'b', 'a']);
   });
 
-  it('applique le barème qualif au classement cumulé', () => {
+  it('applique le barème qualif à chaque Race et cumule les points', () => {
     const p = points(tournoi('qualif'), [
       {
         type: 'qualif',
@@ -182,7 +190,8 @@ describe('Qualifs', () => {
         ],
       },
     ]);
-    assert.deepEqual(p, { a: 8, b: 6, c: 7, d: 5 });
+    // a 8+7+8 ; b 7+6+5 ; c 6+8+7 ; d 5+5+6.
+    assert.deepEqual(p, { a: 23, b: 18, c: 21, d: 16 });
   });
 
   it('retrouve, pour la démo, le classement de la maquette', () => {
@@ -225,6 +234,143 @@ describe('Race', () => {
     const { equipes } = calculer(tournoi('race'), [{ type: 'race', ordre: ['a', 'c', 'b', 'd'] }]);
     // a : 10 + 1, b : 7 + 1 → 19 ; c : 8, d : 6 → 14.
     assert.deepEqual(equipes, { rouge: 19, bleu: 14 });
+  });
+});
+
+describe('Équipes inégales (7 joueurs)', () => {
+  const J3: Joueur[] = [
+    { id: 'a', nom: 'A', equipe: 'rouge', rivalId: 'c', ordre: 0 },
+    { id: 'b', nom: 'B', equipe: 'rouge', rivalId: null, ordre: 1 },
+    { id: 'c', nom: 'C', equipe: 'bleu', rivalId: 'a', ordre: 2 },
+  ];
+  const race: Manche = { numero: 1, bloc: 'Test', trace: 'T', finale: false, type: 'race' };
+
+  it("ramène la plus petite équipe à la taille de l'autre en Race", () => {
+    const { equipes, etats } = calculer({ joueurs: J3, manches: [race] }, [
+      { type: 'race', ordre: ['c', 'a', 'b'] },
+    ]);
+    // c : 10 + 1 (bat a) → bleu 11 × 2/1 = 22 ; a : 8, b : 7 → rouge 15.
+    assert.deepEqual(equipes, { rouge: 15, bleu: 22 });
+    // Les points individuels ne changent pas ; b sans rival n'a pas de bonus.
+    assert.equal(etats.get('c')?.points, 11);
+    assert.equal(etats.get('b')?.points, 7);
+  });
+
+  it("donne +13 au lieu de +10 à l'équipe de 3 qui gagne un Hot Pursuit", () => {
+    const hp = (cops: Equipe): Manche => ({
+      numero: 1,
+      bloc: 'Test',
+      trace: 'T',
+      finale: false,
+      type: 'hp',
+      cops,
+    });
+    // Rouge (a, b) contre Bleu (c) : ici Bleu est l'équipe de 1 contre 2 → ×2.
+    const bleuCops = calculer({ joueurs: J3, manches: [hp('bleu')] }, [
+      {
+        type: 'hp',
+        racers: [
+          { id: 'a', position: null },
+          { id: 'b', position: null },
+        ],
+        busts: { c: 2 },
+        gagnant: 'cops',
+      },
+    ]);
+    assert.deepEqual(bleuCops.equipes, { rouge: 0, bleu: 20 });
+    const rougeGagne = calculer({ joueurs: J3, manches: [hp('rouge')] }, [
+      { type: 'hp', racers: [{ id: 'c', position: 1 }], busts: {}, gagnant: 'racers' },
+    ]);
+    assert.deepEqual(rougeGagne.equipes, { rouge: 0, bleu: 20 });
+  });
+
+  it('arrondit le facteur 4/3 : +13 pour une équipe de 3 contre 4', () => {
+    const sept: Joueur[] = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((id, i) => ({
+      id,
+      nom: id,
+      equipe: i < 3 ? 'rouge' : 'bleu',
+      rivalId: null,
+      ordre: i,
+    }));
+    assert.equal(Math.round(10 * facteurEquipe(sept, 'rouge')), 13);
+    assert.equal(facteurEquipe(sept, 'bleu'), 1);
+    assert.equal(facteurEquipe(J4, 'rouge'), 1);
+  });
+
+  it('ignore les primes du jeu dans le pointage', () => {
+    const { etats } = calculer({ joueurs: J3, manches: [race] }, [
+      { type: 'race', ordre: ['c', 'a', 'b'], primes: { a: 4576, c: 12000 } },
+    ]);
+    assert.equal(etats.get('a')?.points, 8);
+  });
+});
+
+describe('Ennemi public n°1', () => {
+  // Rouge (a, b) cops, Bleu (c, d) racers ; c est l'ennemi public.
+  const ep: Manche = {
+    numero: 1,
+    bloc: 'Test',
+    trace: 'T',
+    finale: false,
+    type: 'ep',
+    cops: 'rouge',
+  };
+  const t: Tournoi = { joueurs: J4, manches: [ep] };
+
+  it("donne +10 à l'ennemi public qui s'échappe, +3 à ses escortes et le bonus au camp", () => {
+    const { etats, equipes } = calculer(t, [
+      { type: 'ep', vip: 'c', echappe: true, busts: { a: 1 } },
+    ]);
+    assert.equal(etats.get('c')?.points, 10);
+    assert.equal(etats.get('d')?.points, 3);
+    assert.equal(etats.get('a')?.points, 2);
+    assert.deepEqual(equipes, { rouge: 0, bleu: 10 });
+  });
+
+  it("donne +4 de plus au cop qui arrête l'ennemi public, et le bonus aux cops", () => {
+    const { etats, equipes } = calculer(t, [
+      { type: 'ep', vip: 'c', echappe: false, bustVipPar: 'b', busts: { b: 1, a: 1 } },
+    ]);
+    assert.equal(etats.get('b')?.points, 6);
+    assert.equal(etats.get('a')?.points, 2);
+    assert.equal(etats.get('c')?.points, 0);
+    assert.equal(etats.get('d')?.points, 0);
+    assert.deepEqual(equipes, { rouge: 10, bleu: 0 });
+  });
+});
+
+describe('Cops éliminés', () => {
+  it('donne +2 au racer par cop éliminé, en Hot Pursuit et en Ennemi public', () => {
+    const hp: Manche = {
+      numero: 1,
+      bloc: 'T',
+      trace: 'T',
+      finale: false,
+      type: 'hp',
+      cops: 'rouge',
+    };
+    const ep: Manche = {
+      numero: 2,
+      bloc: 'T',
+      trace: 'T',
+      finale: false,
+      type: 'ep',
+      cops: 'rouge',
+    };
+    const { etats } = calculer({ joueurs: J4, manches: [hp, ep] }, [
+      {
+        type: 'hp',
+        racers: [
+          { id: 'c', position: null },
+          { id: 'd', position: null },
+        ],
+        busts: {},
+        gagnant: 'cops',
+        accidents: { c: 1 },
+      },
+      { type: 'ep', vip: 'd', echappe: false, busts: {}, accidents: { c: 2 } },
+    ]);
+    assert.equal(etats.get('c')?.points, 6);
   });
 });
 
@@ -345,6 +491,20 @@ describe('Horaire', () => {
       HORAIRE.map((m) => m.numero),
       Array.from({ length: 21 }, (_, i) => i + 1),
     );
+  });
+
+  it('à 7 joueurs : 20 manches, 3 duels, numérotées de 1 à 20', () => {
+    const h = horairePour(7);
+    assert.equal(h.length, 20);
+    assert.deepEqual(
+      h.flatMap((m) => (m.type === 'duel' ? [m.duel] : [])),
+      [0, 1, 2],
+    );
+    assert.deepEqual(
+      h.map((m) => m.numero),
+      Array.from({ length: 20 }, (_, i) => i + 1),
+    );
+    assert.equal(h.filter((m) => m.finale).length, 4);
   });
 
   it('tire les paires de duel des rivaux', () => {

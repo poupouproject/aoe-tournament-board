@@ -29,6 +29,10 @@ export function resultatsComplets(tournoi: Tournoi): Resultat[] {
           gagnant: 'racers',
         };
       }
+      case 'ep': {
+        const vip = tournoi.joueurs.find((j) => j.equipe === adversaire(manche.cops));
+        return { type: 'ep', vip: vip?.id ?? '', echappe: true, busts: {} };
+      }
       case 'duel': {
         const rouge = paires[manche.duel]?.[0] ?? '';
         return { type: 'duel', manches: [rouge, rouge] };

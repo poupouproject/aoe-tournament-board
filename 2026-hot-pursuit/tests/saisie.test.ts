@@ -14,6 +14,7 @@ import {
   gagnantHpParDefaut,
   resumeManche,
   texteGains,
+  ordreDeChoix,
   tirerRivaux,
   validerDraft,
   validerResultat,
@@ -164,6 +165,51 @@ describe('draft', () => {
     const rivaux = { jo: 'max', ben: 'max', fred: 'kev', alex: 'oli' };
     assert.ok(validerDraft(JOUEURS_DEMO, { equipes, rivaux }));
   });
+
+  describe('à 7 joueurs', () => {
+    const sept = JOUEURS_DEMO.filter((j) => j.id !== 'oli');
+    const bleus3 = ['max', 'seb', 'kev'];
+    const equipes7 = Object.fromEntries(
+      Object.entries(equipes).filter(([id]) => id !== 'oli'),
+    ) as Record<string, Equipe>;
+
+    it('laisse un rouge sans rival, tiré au sort', () => {
+      const sansRival = new Set<string>();
+      for (const graine of [0, 0.3, 0.7, 0.99]) {
+        const rivaux = tirerRivaux(rouges, bleus3, () => graine);
+        assert.equal(Object.keys(rivaux).length, 3);
+        assert.deepEqual(Object.values(rivaux).sort(), [...bleus3].sort());
+        for (const r of rouges) if (!rivaux[r]) sansRival.add(r);
+      }
+      assert.ok(sansRival.size > 1, 'toujours le même rouge sans rival');
+    });
+
+    it('laisse un bleu sans rival quand Bleu a 4 joueurs', () => {
+      const rivaux = tirerRivaux(['jo', 'ben', 'fred'], bleus, () => 0.5);
+      assert.deepEqual(Object.keys(rivaux), ['jo', 'ben', 'fred']);
+      assert.equal(new Set(Object.values(rivaux)).size, 3);
+    });
+
+    it('accepte 4 contre 3 avec 3 paires de rivaux', () => {
+      const rivaux = tirerRivaux(rouges, bleus3);
+      assert.equal(validerDraft(sept, { equipes: equipes7, rivaux }), null);
+    });
+
+    it('refuse 5 contre 2', () => {
+      const inegales = { ...equipes7, max: 'rouge' as const };
+      assert.match(validerDraft(sept, { equipes: inegales, rivaux: {} }) ?? '', /inégales/);
+    });
+
+    it('refuse un draft sans toutes les paires', () => {
+      const rivaux = { jo: 'max', ben: 'seb' };
+      assert.ok(validerDraft(sept, { equipes: equipes7, rivaux }));
+    });
+
+    it('donne un ordre de choix de 5 picks', () => {
+      assert.deepEqual(ordreDeChoix(7), ['bleu', 'rouge', 'rouge', 'bleu', 'bleu']);
+      assert.equal(ordreDeChoix(8).length, 6);
+    });
+  });
 });
 
 describe('résumé après enregistrement', () => {
@@ -224,5 +270,43 @@ describe('validation des qualifs', () => {
 
   it('accepte 1 à 3 Races complètes', () => {
     assert.equal(validerResultat(AVANT_DRAFT, [], { type: 'qualif', races: [IDS] }), null);
+  });
+});
+
+describe('saisie : Ennemi public n°1', () => {
+  const ep = {
+    numero: 1,
+    bloc: 'Test',
+    trace: 'T',
+    finale: false,
+    type: 'ep',
+    cops: 'rouge',
+  } as const;
+  const t: Tournoi = { joueurs: JOUEURS_DEMO, manches: [ep] };
+
+  it('accepte un ennemi public de l’équipe des racers', () => {
+    assert.equal(
+      validerResultat(t, [], {
+        type: 'ep',
+        vip: 'max',
+        echappe: false,
+        bustVipPar: 'jo',
+        busts: { jo: 1 },
+      }),
+      null,
+    );
+  });
+
+  it('refuse un ennemi public dans l’équipe des cops, ou arrêté par un racer', () => {
+    assert.ok(validerResultat(t, [], { type: 'ep', vip: 'jo', echappe: true, busts: {} }));
+    assert.ok(
+      validerResultat(t, [], {
+        type: 'ep',
+        vip: 'max',
+        echappe: false,
+        bustVipPar: 'seb',
+        busts: {},
+      }),
+    );
   });
 });

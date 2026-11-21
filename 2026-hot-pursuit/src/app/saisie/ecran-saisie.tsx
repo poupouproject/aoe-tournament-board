@@ -13,6 +13,7 @@ import {
   annulerDerniereManche,
   changerTrace,
   enregistrerDraft,
+  enregistrerPrimes,
   enregistrerResultat,
   renommerJoueurs,
 } from './actions';
@@ -30,6 +31,7 @@ const MODES: Record<Manche['type'], string> = {
   qualif: 'Qualifications',
   race: 'Race',
   hp: 'Hot Pursuit',
+  ep: 'Ennemi public n°1',
   duel: 'Duel Interceptor',
 };
 
@@ -158,6 +160,12 @@ export function EcranSaisie({ ctx }: { ctx: ContexteSaisie }) {
           </button>
         )}
 
+        {ctx.nbJouees > 0 && (
+          <Repli titre={`Primes du jeu · manche ${String(ctx.nbJouees)}`}>
+            <Primes key={ctx.nbJouees} ctx={ctx} enCours={enCours} envoyer={envoyer} />
+          </Repli>
+        )}
+
         {ctx.draft === 'modifiable' && (
           <Repli titre="Modifier le draft">
             <FormulaireDraft
@@ -200,6 +208,8 @@ function Formulaire({
       return (
         <FormulaireHp manche={manche} joueurs={ctx.joueurs} enCours={enCours} envoyer={envoyer} />
       );
+    case 'ep':
+      return <p className="text-or">Ennemi public n°1 : saisi par l&apos;organisateur.</p>;
     case 'duel':
       return ctx.duel ? (
         <FormulaireDuel duel={ctx.duel} joueurs={ctx.joueurs} enCours={enCours} envoyer={envoyer} />
@@ -234,7 +244,7 @@ function EnTete({
           <h1 className="font-cond text-5xl leading-none font-extrabold uppercase italic">
             {MODES[manche.type]}
           </h1>
-          {manche.type === 'hp' && (
+          {(manche.type === 'hp' || manche.type === 'ep') && (
             <p className="font-cond text-xl font-bold uppercase">
               <span className={manche.cops === 'rouge' ? 'text-rouge' : 'text-bleu'}>
                 Cops {NOMS_EQUIPES[manche.cops]}
@@ -331,6 +341,55 @@ function Noms({
         }}
       >
         Enregistrer les noms
+      </BoutonPrincipal>
+    </Bloc>
+  );
+}
+
+/** Points de prime donnés par le jeu après la dernière manche jouée (stockés seulement). */
+function Primes({
+  ctx,
+  enCours,
+  envoyer,
+}: {
+  ctx: ContexteSaisie;
+  enCours: boolean;
+  envoyer: (action: () => Promise<Retour>, succes: string) => void;
+}) {
+  const [valeurs, setValeurs] = useState<Record<string, string>>(() =>
+    Object.fromEntries(ctx.joueurs.map((j) => [j.id, ctx.primesDerniere[j.id]?.toString() ?? ''])),
+  );
+  const primes = Object.fromEntries(
+    Object.entries(valeurs).flatMap(([id, v]) => {
+      const n = Number(v.replace(/\s/g, ''));
+      return v.trim() !== '' && Number.isInteger(n) && n >= 0 ? [[id, n]] : [];
+    }),
+  );
+  return (
+    <Bloc titre="Primes" consigne="Les points que le jeu donne à chacun. Vide = aucun.">
+      {ctx.joueurs.map((j) => (
+        <label key={j.id} className="grid grid-cols-[1fr_9rem] items-center gap-3">
+          <span className="font-cond truncate text-xl font-bold uppercase">{j.nom}</span>
+          <input
+            inputMode="numeric"
+            value={valeurs[j.id] ?? ''}
+            onChange={(e) => {
+              setValeurs({ ...valeurs, [j.id]: e.target.value });
+            }}
+            className="bg-panneau border-ligne min-h-12 border px-3 text-right text-lg"
+          />
+        </label>
+      ))}
+      <BoutonPrincipal
+        disabled={enCours}
+        onClick={() => {
+          envoyer(
+            () => enregistrerPrimes({ numero: ctx.nbJouees, primes }),
+            `Primes de la manche ${String(ctx.nbJouees)} enregistrées ✓`,
+          );
+        }}
+      >
+        Enregistrer les primes
       </BoutonPrincipal>
     </Bloc>
   );

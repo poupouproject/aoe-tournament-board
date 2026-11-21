@@ -5,7 +5,13 @@ import { useState } from 'react';
 import { cx } from '@/lib/cx';
 import { adversaire, classementQualif, NOMS_EQUIPES } from '@/lib/tournoi/moteur';
 import type { ContexteSaisie, JoueurSaisie } from '@/lib/tournoi/saisie';
-import { gagnantHpParDefaut, membres, tirerRivaux } from '@/lib/tournoi/saisie';
+import {
+  equipesValides,
+  gagnantHpParDefaut,
+  membres,
+  ordreDeChoix,
+  tirerRivaux,
+} from '@/lib/tournoi/saisie';
 import type { Equipe, Manche, Resultat } from '@/lib/tournoi/types';
 
 import {
@@ -375,9 +381,19 @@ export function FormulaireDraft({
 
   const rouges = ctx.joueurs.filter((j) => equipes[j.id] === 'rouge');
   const bleus = ctx.joueurs.filter((j) => equipes[j.id] === 'bleu');
-  const moitie = ctx.joueurs.length / 2;
-  const equilibre = rouges.length === moitie && bleus.length === moitie;
-  const tires = equilibre && rouges.every((r) => rivaux[r.id]);
+  const tous = rouges.length + bleus.length === ctx.joueurs.length;
+  const equilibre = tous && equipesValides(rouges.length, bleus.length);
+  const nbPaires = Math.min(rouges.length, bleus.length);
+  const tires = equilibre && rouges.filter((r) => rivaux[r.id]).length === nbPaires && nbPaires > 0;
+  const avecRival = new Set(Object.entries(rivaux).flat());
+  const sansRival = ctx.joueurs.filter((j) => equipes[j.id] && !avecRival.has(j.id));
+  const tailles =
+    ctx.joueurs.length % 2 === 0
+      ? `${String(ctx.joueurs.length / 2)} et ${String(ctx.joueurs.length / 2)}`
+      : `${String(Math.ceil(ctx.joueurs.length / 2))} et ${String(Math.floor(ctx.joueurs.length / 2))}`;
+  const ordre = ordreDeChoix(ctx.joueurs.length)
+    .map((e) => NOMS_EQUIPES[e])
+    .join(', ');
   const nom = (id: string): string => ctx.joueurs.find((j) => j.id === id)?.nom ?? id;
 
   return (
@@ -386,7 +402,7 @@ export function FormulaireDraft({
         titre="Équipes"
         consigne={
           ctx.capitaines.length === 2
-            ? `Capitaines : ${ctx.capitaines[0]?.nom ?? ''} (Rouge) et ${ctx.capitaines[1]?.nom ?? ''} (Bleu). Ordre de choix : Bleu, Rouge, Rouge, Bleu, Bleu, Rouge.`
+            ? `Capitaines : ${ctx.capitaines[0]?.nom ?? ''} (Rouge) et ${ctx.capitaines[1]?.nom ?? ''} (Bleu). Ordre de choix : ${ordre}.`
             : 'Choisissez une équipe pour chaque joueur.'
         }
       >
@@ -410,7 +426,7 @@ export function FormulaireDraft({
         ))}
         <p className={equilibre ? 'text-attenue text-sm' : 'text-or text-sm'}>
           Rouge {rouges.length} · Bleu {bleus.length}
-          {equilibre ? '' : ` (il faut ${String(moitie)} et ${String(moitie)})`}
+          {equilibre ? '' : ` (il faut ${tailles})`}
         </p>
       </Bloc>
 
@@ -440,6 +456,12 @@ export function FormulaireDraft({
               <span className="text-attenue px-3">vs</span>
               <span className="text-bleu text-right">{nom(rivaux[r.id] ?? '')}</span>
             </div>
+          ))}
+        {tires &&
+          sansRival.map((j) => (
+            <p key={j.id} className="text-attenue text-sm">
+              {j.nom} n&apos;a pas de rival : pas de duel ni de bonus rival.
+            </p>
           ))}
       </Bloc>
 

@@ -4,6 +4,7 @@ import type {
   equipeSchema,
   mancheSchema,
   resultatDuelSchema,
+  resultatEpSchema,
   resultatHpSchema,
   resultatQualifSchema,
   resultatRaceSchema,
@@ -30,6 +31,7 @@ export type ResultatQualif = z.infer<typeof resultatQualifSchema>;
 export type ResultatRace = z.infer<typeof resultatRaceSchema>;
 export type ResultatHp = z.infer<typeof resultatHpSchema>;
 export type ResultatDuel = z.infer<typeof resultatDuelSchema>;
+export type ResultatEp = z.infer<typeof resultatEpSchema>;
 
 /** Tout ce que le moteur doit savoir du tournoi, hors résultats. */
 export interface Tournoi {

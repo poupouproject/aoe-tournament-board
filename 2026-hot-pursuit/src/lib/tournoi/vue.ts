@@ -1,5 +1,5 @@
 import { BAREME } from './bareme';
-import { calculer, classement, pairesDeRivaux, prochaineManche } from './moteur';
+import { calculer, classement, facteurEquipe, pairesDeRivaux, prochaineManche } from './moteur';
 import type { Equipe, Resultat, Tournoi } from './types';
 
 /**
@@ -37,7 +37,23 @@ export type CarteProchaine =
       /** Rattrapage : le dernier au classement choisit le tracé. */
       choisiPar: string | null;
     }
-  | { type: 'hp'; trace: string; finale: boolean; cops: Equipe; choisiPar: string | null }
+  | {
+      type: 'hp';
+      trace: string;
+      finale: boolean;
+      cops: Equipe;
+      choisiPar: string | null;
+      /** Bonus du camp gagnant selon l'équipe : +10, ou +13 pour l'équipe de 3. */
+      bonusEquipe: Record<Equipe, number>;
+    }
+  | {
+      type: 'ep';
+      trace: string;
+      finale: boolean;
+      cops: Equipe;
+      choisiPar: string | null;
+      bonusEquipe: Record<Equipe, number>;
+    }
   | {
       type: 'duel';
       trace: string;
@@ -68,6 +84,10 @@ export interface VueScoreboard {
   prochaine: CarteProchaine | null;
   lignes: LigneClassement[];
   equipes: Record<Equipe, number>;
+  /** Nombre de joueurs par équipe (0 avant le draft). */
+  tailles: Record<Equipe, number>;
+  /** Qualifs jouées, équipes pas encore formées : on affiche le barème. */
+  draftEnAttente: boolean;
   rivalites: Rivalite[];
   ticker: string[];
   /** Le prochain duel, ou à défaut la première paire de rivaux ; null avant le tirage. */
@@ -142,7 +162,17 @@ export function construireVue(tournoi: Tournoi, resultats: readonly Resultat[]):
         };
         break;
       case 'hp':
-        prochaine = { ...base, type: 'hp', cops: manche.cops, choisiPar };
+      case 'ep':
+        prochaine = {
+          ...base,
+          type: manche.type,
+          cops: manche.cops,
+          choisiPar,
+          bonusEquipe: {
+            rouge: Math.round(BAREME.hpEquipeGagnante * facteurEquipe(tournoi.joueurs, 'rouge')),
+            bleu: Math.round(BAREME.hpEquipeGagnante * facteurEquipe(tournoi.joueurs, 'bleu')),
+          },
+        };
         break;
       case 'duel': {
         const paire = paires[manche.duel];
@@ -196,6 +226,11 @@ export function construireVue(tournoi: Tournoi, resultats: readonly Resultat[]):
     prochaine,
     lignes,
     equipes,
+    tailles: {
+      rouge: tournoi.joueurs.filter((j) => j.equipe === 'rouge').length,
+      bleu: tournoi.joueurs.filter((j) => j.equipe === 'bleu').length,
+    },
+    draftEnAttente: nbJouees > 0 && tournoi.joueurs.some((j) => j.equipe === null),
     rivalites,
     ticker,
     duel,

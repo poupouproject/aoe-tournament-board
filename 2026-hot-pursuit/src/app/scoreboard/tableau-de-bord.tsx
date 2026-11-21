@@ -8,7 +8,7 @@ import type { VueScoreboard } from '@/lib/tournoi/vue';
 
 import { Duel } from './duel';
 import { Horloge } from './horloge';
-import { Equipes, Prochaine, Rivalites, Ticker } from './panneaux';
+import { Equipes, Prochaine, Rivalites, SystemePoints, Ticker } from './panneaux';
 import { BandeauLeader, Podium } from './podium';
 import s from './scoreboard.module.css';
 import { basculerSon, jouer, preparerAudio, useSonActif } from './son';
@@ -210,17 +210,21 @@ export function TableauDeBord({ vue }: { vue: VueScoreboard }) {
           <main className={s.corps}>
             <Tour lignes={vue.lignes} flash={effets.flash} vague={effets.vague} />
             <aside className={s.colonne}>
-              <Equipes equipes={vue.equipes} />
-              <Prochaine
-                carte={vue.prochaine}
-                onClick={() => {
-                  setDuel((d) => ({
-                    ouvert: !d.ouvert,
-                    automatique: false,
-                    generation: d.generation + 1,
-                  }));
-                }}
-              />
+              <Equipes equipes={vue.equipes} tailles={vue.tailles} />
+              {vue.draftEnAttente ? (
+                <SystemePoints tailles={vue.tailles} />
+              ) : (
+                <Prochaine
+                  carte={vue.prochaine}
+                  onClick={() => {
+                    setDuel((d) => ({
+                      ouvert: !d.ouvert,
+                      automatique: false,
+                      generation: d.generation + 1,
+                    }));
+                  }}
+                />
+              )}
               <Rivalites rivalites={vue.rivalites} />
             </aside>
           </main>

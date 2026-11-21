@@ -13,20 +13,36 @@ const PASTILLE: Record<Equipe, string | undefined> = {
 };
 
 /** Guerre des équipes : Rouge contre Bleu, avec la barre de répartition. */
-export function Equipes({ equipes }: { equipes: Record<Equipe, number> }) {
+export function Equipes({
+  equipes,
+  tailles,
+}: {
+  equipes: Record<Equipe, number>;
+  tailles: Record<Equipe, number>;
+}) {
   const total = equipes.rouge + equipes.bleu || 1;
   const ecart = equipes.rouge - equipes.bleu;
+  const inegales = tailles.rouge !== tailles.bleu && tailles.rouge > 0 && tailles.bleu > 0;
+  const petite: Equipe | null = inegales ? (tailles.rouge < tailles.bleu ? 'rouge' : 'bleu') : null;
+  const effectif = (e: Equipe): string =>
+    tailles[e] > 0 ? ` · ${String(tailles[e])}${e === petite ? ' ×4/3' : ''}` : '';
   return (
     <div className={s.panneau}>
       <div className={s.titre}>Guerre des équipes</div>
       <div className={s.equipes}>
         <div className={s.equipeRouge}>
-          <div className={s.equipeNom}>{NOMS_EQUIPES.rouge}</div>
+          <div className={s.equipeNom}>
+            {NOMS_EQUIPES.rouge}
+            <span className={s.effectif}>{effectif('rouge')}</span>
+          </div>
           <div className={cx(s.equipePoints, s.num)}>{equipes.rouge}</div>
         </div>
         <div className={s.vs}>VS</div>
         <div className={s.equipeBleu}>
-          <div className={s.equipeNom}>{NOMS_EQUIPES.bleu}</div>
+          <div className={s.equipeNom}>
+            {NOMS_EQUIPES.bleu}
+            <span className={s.effectif}>{effectif('bleu')}</span>
+          </div>
           <div className={cx(s.equipePoints, s.num)}>{equipes.bleu}</div>
         </div>
       </div>
@@ -53,6 +69,7 @@ const MODES: Record<CarteProchaine['type'], string> = {
   qualif: 'Qualifs',
   race: 'Race',
   hp: 'Hot Pursuit',
+  ep: 'Ennemi public',
   duel: 'Interceptor',
 };
 
@@ -75,7 +92,8 @@ function Details({ carte }: { carte: CarteProchaine }) {
           </dd>
         </dl>
       );
-    case 'hp': {
+    case 'hp':
+    case 'ep': {
       const racers = adversaire(carte.cops);
       return (
         <dl className={s.details}>
@@ -87,8 +105,21 @@ function Details({ carte }: { carte: CarteProchaine }) {
           <dd>
             <span className={cx(s.pastille, PASTILLE[racers])}>{NOMS_EQUIPES[racers]}</span>
           </dd>
+          {carte.type === 'ep' && (
+            <>
+              <dt>Mission</dt>
+              <dd>
+                Protéger l&apos;ennemi public : <span className={s.or}>+{BAREME.epVipEchappe}</span>{' '}
+                s&apos;il s&apos;échappe, +{BAREME.epEscorte} à chaque escorte
+              </dd>
+            </>
+          )}
           <dt>Enjeu</dt>
-          <dd>+{BAREME.hpEquipeGagnante} au camp gagnant</dd>
+          <dd>
+            {carte.bonusEquipe.rouge === carte.bonusEquipe.bleu
+              ? `+${String(carte.bonusEquipe.rouge)} au camp gagnant`
+              : `+${String(carte.bonusEquipe[carte.cops])} ${NOMS_EQUIPES[carte.cops]} · +${String(carte.bonusEquipe[racers])} ${NOMS_EQUIPES[racers]}`}
+          </dd>
         </dl>
       );
     }
@@ -142,9 +173,10 @@ export function Prochaine({
           <div className={s.mode}>{MODES[carte.type]}</div>
           <div className={s.trace}>
             {carte.trace}
-            {(carte.type === 'race' || carte.type === 'hp') && carte.choisiPar && (
-              <span className={s.choisiPar}> · choisi par {carte.choisiPar}</span>
-            )}
+            {(carte.type === 'race' || carte.type === 'hp' || carte.type === 'ep') &&
+              carte.choisiPar && (
+                <span className={s.choisiPar}> · choisi par {carte.choisiPar}</span>
+              )}
           </div>
           <Details carte={carte} />
         </>
@@ -152,6 +184,49 @@ export function Prochaine({
         <div className={s.mode}>Podium</div>
       )}
     </button>
+  );
+}
+
+const liste = (points: readonly number[]): string => points.join('-');
+
+/** Système de points, affiché pendant le draft à la place de la prochaine manche. */
+export function SystemePoints({ tailles }: { tailles: Record<Equipe, number> }) {
+  const nb = Math.max(tailles.rouge + tailles.bleu, 2);
+  const inegales = tailles.rouge !== tailles.bleu;
+  return (
+    <div className={cx(s.panneau, s.systeme)}>
+      <div className={s.titre}>Système de points</div>
+      <dl className={s.details}>
+        <dt>Race</dt>
+        <dd>{liste(BAREME.race.slice(0, nb))}</dd>
+        <dt>Bonus</dt>
+        <dd>
+          Devant le leader <span className={s.or}>+{BAREME.prime}</span> · bat son rival{' '}
+          <span className={s.or}>+{BAREME.rival}</span>
+        </dd>
+        <dt>Hot Pursuit</dt>
+        <dd>
+          Racer {liste(BAREME.hpRacer)} · busté 0 · cop +{BAREME.hpBust}/bust
+        </dd>
+        <dt>Duel</dt>
+        <dd>+{BAREME.duelManche} par manche gagnée</dd>
+        <dt>Équipe</dt>
+        <dd>
+          Race : somme des membres{inegales ? ' (×4/3 pour l’équipe de 3)' : ''}
+          <br />
+          Hot Pursuit : +{BAREME.hpEquipeGagnante} au camp gagnant
+          {inegales
+            ? ` (+${String(Math.round((BAREME.hpEquipeGagnante * 4) / 3))} pour l’équipe de 3)`
+            : ''}
+          <br />
+          Duel : +{BAREME.duelEquipe} à l’équipe du gagnant
+        </dd>
+        <dt>Joker</dt>
+        <dd>×{BAREME.multiplicateurJoker} sur une manche, une fois · pas en finale</dd>
+        <dt>Finale</dt>
+        <dd className={s.or}>Tous les points ×{BAREME.multiplicateurFinale}</dd>
+      </dl>
+    </div>
   );
 }
 

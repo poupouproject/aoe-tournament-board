@@ -426,6 +426,23 @@
   letter-spacing: 0.08em;
 }
 
+/* Effectif d'équipe, à côté du nom */
+.effectif {
+  font-size: 18px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+/* Système de points (pendant le draft) */
+.systeme .details {
+  margin-top: 0;
+  gap: 8px 20px;
+}
+.systeme .details dd {
+  font-size: 21px;
+  line-height: 1.2;
+}
+
 /* Prochaine manche */
 .prochaine {
   position: relative;

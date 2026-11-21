@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { chargerTournoi } from '@/lib/tournoi/donnees';
 import type { ResumeManche } from '@/lib/tournoi/saisie';
 import { resumeManche, validerDraft, validerResultat } from '@/lib/tournoi/saisie';
-import { equipeSchema, resultatSchema } from '@/lib/tournoi/schemas';
+import { equipeSchema, migrerResultat, primesSchema, resultatSchema } from '@/lib/tournoi/schemas';
 
 /** Retour d'une action ; `resume` accompagne une manche enregistrée. */
 export type Retour = { ok: true; resume?: ResumeManche } | { ok: false; erreur: string };
@@ -114,6 +114,33 @@ export async function changerTrace(donnees: unknown): Promise<Retour> {
   const { resultats } = await chargerTournoi();
   if (numero <= resultats.length) return echec('Cette manche est déjà jouée.');
   await prisma().manche.update({ where: { numero }, data: { trace } });
+  refresh();
+  return { ok: true };
+}
+
+const primesManche = z.object({ numero: z.number().int().min(1), primes: primesSchema });
+
+/**
+ * Points de prime du jeu pour une manche jouée, par joueur. Ils sont stockés
+ * avec le résultat et ne changent pas le pointage.
+ */
+export async function enregistrerPrimes(donnees: unknown): Promise<Retour> {
+  const lecture = primesManche.safeParse(donnees);
+  if (!lecture.success) return echec('Primes invalides : des nombres entiers positifs.');
+  const { numero, primes } = lecture.data;
+
+  const { tournoi } = await chargerTournoi();
+  const ids = new Set(tournoi.joueurs.map((j) => j.id));
+  if (Object.keys(primes).some((id) => !ids.has(id))) return echec('Joueur inconnu.');
+
+  const db = prisma();
+  const ligne = await db.resultat.findUnique({ where: { mancheNumero: numero } });
+  if (!ligne) return echec("Cette manche n'est pas encore jouée.");
+  const resultat = resultatSchema.parse(migrerResultat(JSON.parse(ligne.donnees)));
+  await db.resultat.update({
+    where: { mancheNumero: numero },
+    data: { donnees: JSON.stringify({ ...resultat, primes }) },
+  });
   refresh();
   return { ok: true };
 }
