@@ -4,7 +4,7 @@ import { connection } from 'next/server';
 
 import { prisma } from '@/lib/prisma';
 
-import { equipeSchema, mancheSchema, resultatSchema } from './schemas';
+import { equipeSchema, mancheSchema, migrerResultat, resultatSchema } from './schemas';
 import type { Joueur, Manche, Resultat, Tournoi } from './types';
 
 export interface EtatTournoi {
@@ -37,7 +37,7 @@ export async function chargerTournoi(): Promise<EtatTournoi> {
   const resultats: Resultat[] = [];
   for (const m of lignesManches) {
     if (!m.resultat) break;
-    resultats.push(resultatSchema.parse(JSON.parse(m.resultat.donnees)));
+    resultats.push(resultatSchema.parse(migrerResultat(JSON.parse(m.resultat.donnees))));
   }
   const saisis = lignesManches.filter((m) => m.resultat).length;
   if (saisis !== resultats.length) {

@@ -26,9 +26,11 @@ npm run dev
 
 Tout tourne sur le poste de l'organisateur, sans internet.
 
-1. Lancer `npm run dev`. Le serveur écoute sur toutes les interfaces, sur le port 3000.
-2. Le projo 1 ouvre `http://<ip-du-poste>:3000/scoreboard`, et le téléphone ouvre `/saisie`, tous deux sur le même Wi-Fi.
+1. Lancer `npm run tournoi`. La commande applique les migrations, compile l'app en mode production et la sert sur le port 3000, sur toutes les interfaces. Le mode production est plus rapide et plus stable sur une journée que `npm run dev`, et il n'affiche jamais la console de développement.
+2. Le projo 1 ouvre `http://<ip-du-poste>:3000/scoreboard`. Les téléphones ouvrent `/saisie`, sur le même Wi-Fi.
 3. Sous WSL, il faut aussi rediriger le port 3000 de Windows vers WSL et l'ouvrir dans le pare-feu Windows.
+
+Chaque écran se met à jour en direct, en moins d'une demi-seconde, dès qu'une manche est saisie.
 
 ## Développement
 

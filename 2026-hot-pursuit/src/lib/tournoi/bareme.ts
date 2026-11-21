@@ -10,6 +10,14 @@ export const BAREME = {
   hpBust: 2,
   /** Hot Pursuit : au camp gagnant (score d'équipe). */
   hpEquipeGagnante: 10,
+  /** Hot Pursuit et Ennemi public : un racer élimine un cop (colonne « Accidents »). */
+  accident: 2,
+  /** Ennemi public n°1 : l'ennemi public s'échappe. */
+  epVipEchappe: 10,
+  /** Ennemi public n°1 : chaque coéquipier de l'ennemi public, s'il s'échappe. */
+  epEscorte: 3,
+  /** Ennemi public n°1 : le cop qui arrête l'ennemi public (en plus du +2 du bust). */
+  epBustVip: 4,
   /** Duel Interceptor : par manche de duel gagnée. */
   duelManche: 5,
   /** Duel gagné : à l'équipe du gagnant. */

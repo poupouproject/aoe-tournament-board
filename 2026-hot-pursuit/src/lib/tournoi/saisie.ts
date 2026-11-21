@@ -28,6 +28,8 @@ export interface ContexteSaisie {
   draft: EtatDraft;
   /** Les 2 premiers des qualifs : capitaines au draft (Rouge, puis Bleu). */
   capitaines: { id: string; nom: string }[];
+  /** Points de prime du jeu déjà saisis pour la dernière manche jouée. */
+  primesDerniere: Record<string, number>;
 }
 
 /** Le draft est complet quand tout le monde a une équipe et un rival. */
@@ -71,6 +73,7 @@ export function contexteSaisie(tournoi: Tournoi, resultats: readonly Resultat[])
               nom: tournoi.joueurs.find((j) => j.id === e.id)?.nom ?? e.id,
             }))
         : [],
+    primesDerniere: resultats[resultats.length - 1]?.primes ?? {},
   };
 }
 
@@ -109,6 +112,14 @@ export function validerResultat(
 
   switch (resultat.type) {
     case 'qualif':
+      for (const [i, race] of resultat.races.entries()) {
+        if (!memesElements(race, ids)) {
+          return `Race ${String(i + 1)} : placez chaque pilote une seule fois.`;
+        }
+      }
+      if (resultat.jokers?.length) return 'Pas de joker en qualifs.';
+      break;
+
     case 'race':
       if (!memesElements(resultat.ordre, ids)) return 'Placez chaque pilote une seule fois.';
       break;
@@ -141,6 +152,24 @@ export function validerResultat(
       break;
     }
 
+    case 'ep': {
+      if (manche.type !== 'ep') break;
+      const cops = ids.filter((id) => equipe(id) === manche.cops);
+      if (equipe(resultat.vip) !== adversaire(manche.cops)) {
+        return "L'ennemi public doit être dans l'équipe des racers.";
+      }
+      if (Object.keys(resultat.busts).some((id) => !cops.includes(id))) {
+        return 'Seuls les cops font des busts.';
+      }
+      if (resultat.echappe && resultat.bustVipPar) {
+        return "L'ennemi public ne peut pas s'échapper et être arrêté.";
+      }
+      if (resultat.bustVipPar && !cops.includes(resultat.bustVipPar)) {
+        return "Seul un cop peut arrêter l'ennemi public.";
+      }
+      break;
+    }
+
     case 'duel': {
       if (manche.type !== 'duel') break;
       const paire = pairesDeRivaux(tournoi.joueurs)[manche.duel];
@@ -154,6 +183,13 @@ export function validerResultat(
         return '1 à 1 : choisissez le gagnant du bris d’égalité.';
       }
       break;
+    }
+  }
+
+  if ((resultat.type === 'hp' || resultat.type === 'ep') && resultat.accidents) {
+    const cops = manche.type === 'hp' || manche.type === 'ep' ? manche.cops : null;
+    if (Object.keys(resultat.accidents).some((id) => equipe(id) === cops)) {
+      return 'Seuls les racers éliminent des cops.';
     }
   }
 
@@ -177,18 +213,44 @@ export function validerResultat(
   return null;
 }
 
-/** Tire les rivaux au sort : chaque rouge reçoit un bleu différent. */
+/**
+ * Tire les rivaux au sort : chaque rouge reçoit un bleu différent. Avec des
+ * équipes inégales (7 joueurs), un joueur de la plus grande équipe, tiré au
+ * sort lui aussi, reste sans rival.
+ */
 export function tirerRivaux(
   rouges: readonly string[],
   bleus: readonly string[],
   aleatoire: () => number = Math.random,
 ): Record<string, string> {
-  const melange = [...bleus];
+  const melange: (string | null)[] = [
+    ...bleus,
+    ...Array.from({ length: Math.max(0, rouges.length - bleus.length) }, () => null),
+  ];
   for (let i = melange.length - 1; i > 0; i--) {
     const j = Math.floor(aleatoire() * (i + 1));
-    [melange[i], melange[j]] = [melange[j] ?? '', melange[i] ?? ''];
+    [melange[i], melange[j]] = [melange[j] ?? null, melange[i] ?? null];
   }
-  return Object.fromEntries(rouges.map((r, i) => [r, melange[i] ?? '']));
+  return Object.fromEntries(
+    rouges.flatMap((r, i) => {
+      const bleu = melange[i];
+      return bleu ? [[r, bleu]] : [];
+    }),
+  );
+}
+
+/** Deux équipes de même taille, ou à un joueur près quand le nombre est impair. */
+export function equipesValides(nbRouges: number, nbBleus: number): boolean {
+  return nbRouges > 0 && nbBleus > 0 && Math.abs(nbRouges - nbBleus) <= 1;
+}
+
+/** Ordre de choix du draft après les deux capitaines, selon le nombre de joueurs. */
+export function ordreDeChoix(nbJoueurs: number): Equipe[] {
+  const motif: Equipe[] = ['bleu', 'rouge', 'rouge', 'bleu', 'bleu', 'rouge'];
+  return Array.from(
+    { length: Math.max(0, nbJoueurs - 2) },
+    (_, i) => motif[i % motif.length] ?? 'bleu',
+  );
 }
 
 export interface Draft {
@@ -197,21 +259,69 @@ export interface Draft {
   rivaux: Record<string, string>;
 }
 
-/** Vérifie un draft : deux équipes égales, chaque rouge avec un bleu différent. */
+/**
+ * Vérifie un draft : deux équipes égales (ou à un près si le nombre est
+ * impair), et autant de paires de rivaux que de joueurs dans la plus petite
+ * équipe, chaque rouge avec un bleu différent.
+ */
 export function validerDraft(joueurs: readonly { id: string }[], draft: Draft): string | null {
   const ids = joueurs.map((j) => j.id);
   if (ids.some((id) => !draft.equipes[id])) return 'Chaque joueur doit avoir une équipe.';
   const rouges = ids.filter((id) => draft.equipes[id] === 'rouge');
   const bleus = ids.filter((id) => draft.equipes[id] === 'bleu');
-  if (rouges.length !== bleus.length) {
+  if (!equipesValides(rouges.length, bleus.length)) {
     return `Équipes inégales : ${String(rouges.length)} rouges, ${String(bleus.length)} bleus.`;
   }
-  const choisis = rouges.map((r) => draft.rivaux[r]);
+  const paires = Object.entries(draft.rivaux);
   if (
-    choisis.some((b) => b === undefined || !bleus.includes(b)) ||
-    new Set(choisis).size !== bleus.length
+    paires.length !== Math.min(rouges.length, bleus.length) ||
+    paires.some(([r, b]) => !rouges.includes(r) || !bleus.includes(b)) ||
+    new Set(paires.map(([, b]) => b)).size !== paires.length
   ) {
     return 'Chaque rouge doit avoir un rival bleu différent.';
   }
   return null;
+}
+
+export interface GainManche {
+  nom: string;
+  points: number;
+  joker: boolean;
+}
+
+/** Ce que la dernière manche a rapporté, pour vérifier la saisie d'un coup d'œil. */
+export interface ResumeManche {
+  numero: number;
+  /** Gains non nuls, du plus gros au plus petit. */
+  gains: GainManche[];
+  /** Faits marquants du moteur (vainqueur, prime, busts, jokers…). */
+  journal: string[];
+}
+
+/** Résume la dernière manche de `resultats` (celle qui vient d'être enregistrée). */
+export function resumeManche(tournoi: Tournoi, resultats: readonly Resultat[]): ResumeManche {
+  const n = resultats.length;
+  const apres = calculer(tournoi, resultats, n);
+  const avant = calculer(tournoi, resultats, n - 1);
+  const gains = tournoi.joueurs
+    .map((j) => ({
+      nom: j.nom,
+      points: apres.etats.get(j.id)?.derniere ?? 0,
+      joker:
+        (apres.etats.get(j.id)?.jokerUtilise ?? false) &&
+        !(avant.etats.get(j.id)?.jokerUtilise ?? false),
+    }))
+    .filter((g) => g.points !== 0)
+    .sort((a, b) => b.points - a.points || a.nom.localeCompare(b.nom));
+  return {
+    numero: tournoi.manches[n - 1]?.numero ?? n,
+    gains,
+    journal: apres.journal,
+  };
+}
+
+/** « Seb +26 (joker) · Jonathan +9 · … » */
+export function texteGains(gains: readonly GainManche[]): string {
+  if (gains.length === 0) return 'Aucun point individuel.';
+  return gains.map((g) => `${g.nom} +${String(g.points)}${g.joker ? ' (joker)' : ''}`).join(' · ');
 }

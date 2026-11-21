@@ -32,7 +32,7 @@ const duel = (index: number): SansNumero<Manche> => ({
   finale: false,
 });
 
-export const HORAIRE: readonly Manche[] = [
+const MODELE: SansNumero<Manche>[] = [
   { type: 'qualif', bloc: 'Qualifications', trace: '3 Races cumulées', finale: false },
   race('Route côtière', 'Bloc 1'),
   race('Col des Pins', 'Bloc 1'),
@@ -50,4 +50,19 @@ export const HORAIRE: readonly Manche[] = [
   race('Route côtière', 'Finale', true),
   race('Col des Pins', 'Finale', true),
   ...allerRetour('Grand circuit', 'Finale', true),
-].map((manche, i) => ({ ...manche, numero: i + 1 }) as Manche);
+];
+
+/**
+ * Horaire pour `nbJoueurs` joueurs : un duel par paire de rivaux, donc
+ * 4 duels à 8 joueurs, 3 à 7 ou à 6. Les manches sont renumérotées de 1 à N.
+ */
+export function horairePour(nbJoueurs: number): Manche[] {
+  const nbDuels = Math.floor(nbJoueurs / 2);
+  return MODELE.filter((m) => m.type !== 'duel' || m.duel < nbDuels).map((manche, i) => ({
+    ...manche,
+    numero: i + 1,
+  }));
+}
+
+/** L'horaire de référence, à 8 joueurs (21 manches). */
+export const HORAIRE: readonly Manche[] = horairePour(8);

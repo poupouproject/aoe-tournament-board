@@ -12,10 +12,14 @@ import { HORAIRE } from '../src/lib/tournoi/horaire';
 import {
   contexteSaisie,
   gagnantHpParDefaut,
+  resumeManche,
+  texteGains,
+  ordreDeChoix,
   tirerRivaux,
   validerDraft,
   validerResultat,
 } from '../src/lib/tournoi/saisie';
+import { migrerResultat, resultatSchema } from '../src/lib/tournoi/schemas';
 import type { Equipe, Resultat, Tournoi } from '../src/lib/tournoi/types';
 
 const DEMO: Tournoi = { joueurs: JOUEURS_DEMO, manches: HORAIRE };
@@ -160,5 +164,149 @@ describe('draft', () => {
   it('refuse deux rouges avec le même rival', () => {
     const rivaux = { jo: 'max', ben: 'max', fred: 'kev', alex: 'oli' };
     assert.ok(validerDraft(JOUEURS_DEMO, { equipes, rivaux }));
+  });
+
+  describe('à 7 joueurs', () => {
+    const sept = JOUEURS_DEMO.filter((j) => j.id !== 'oli');
+    const bleus3 = ['max', 'seb', 'kev'];
+    const equipes7 = Object.fromEntries(
+      Object.entries(equipes).filter(([id]) => id !== 'oli'),
+    ) as Record<string, Equipe>;
+
+    it('laisse un rouge sans rival, tiré au sort', () => {
+      const sansRival = new Set<string>();
+      for (const graine of [0, 0.3, 0.7, 0.99]) {
+        const rivaux = tirerRivaux(rouges, bleus3, () => graine);
+        assert.equal(Object.keys(rivaux).length, 3);
+        assert.deepEqual(Object.values(rivaux).sort(), [...bleus3].sort());
+        for (const r of rouges) if (!rivaux[r]) sansRival.add(r);
+      }
+      assert.ok(sansRival.size > 1, 'toujours le même rouge sans rival');
+    });
+
+    it('laisse un bleu sans rival quand Bleu a 4 joueurs', () => {
+      const rivaux = tirerRivaux(['jo', 'ben', 'fred'], bleus, () => 0.5);
+      assert.deepEqual(Object.keys(rivaux), ['jo', 'ben', 'fred']);
+      assert.equal(new Set(Object.values(rivaux)).size, 3);
+    });
+
+    it('accepte 4 contre 3 avec 3 paires de rivaux', () => {
+      const rivaux = tirerRivaux(rouges, bleus3);
+      assert.equal(validerDraft(sept, { equipes: equipes7, rivaux }), null);
+    });
+
+    it('refuse 5 contre 2', () => {
+      const inegales = { ...equipes7, max: 'rouge' as const };
+      assert.match(validerDraft(sept, { equipes: inegales, rivaux: {} }) ?? '', /inégales/);
+    });
+
+    it('refuse un draft sans toutes les paires', () => {
+      const rivaux = { jo: 'max', ben: 'seb' };
+      assert.ok(validerDraft(sept, { equipes: equipes7, rivaux }));
+    });
+
+    it('donne un ordre de choix de 5 picks', () => {
+      assert.deepEqual(ordreDeChoix(7), ['bleu', 'rouge', 'rouge', 'bleu', 'bleu']);
+      assert.equal(ordreDeChoix(8).length, 6);
+    });
+  });
+});
+
+describe('résumé après enregistrement', () => {
+  it('liste les gains de la manche, du plus gros au plus petit, avec le joker', () => {
+    // Manche 3 de la démo : Seb gagne avec son joker.
+    const resume = resumeManche(DEMO, premieres(3));
+    assert.equal(resume.numero, 3);
+    assert.deepEqual(resume.gains[0], { nom: 'Seb', points: 26, joker: true });
+    assert.ok(resume.gains.every((g, i, t) => i === 0 || (t[i - 1]?.points ?? 0) >= g.points));
+    assert.ok(resume.journal.includes('JOKER : Seb double sa manche'));
+  });
+
+  it('écarte les gains nuls (racers bustés)', () => {
+    // Manche 9 : tous les racers rouges sont bustés ; Max (joker) fait 2 busts.
+    const resume = resumeManche(DEMO, RESULTATS_DEMO);
+    assert.deepEqual(
+      resume.gains.map((g) => g.nom),
+      ['Max', 'Kev', 'Olivier'],
+    );
+    assert.equal(resume.gains[0]?.joker, true);
+  });
+
+  it('formate les gains pour le bandeau', () => {
+    assert.equal(
+      texteGains([
+        { nom: 'Seb', points: 26, joker: true },
+        { nom: 'Jonathan', points: 9, joker: false },
+      ]),
+      'Seb +26 (joker) · Jonathan +9',
+    );
+    assert.equal(texteGains([]), 'Aucun point individuel.');
+  });
+});
+
+describe('ancien format des qualifs', () => {
+  it('convertit un ordre cumulé en une seule Race', () => {
+    const ancien = { type: 'qualif', ordre: IDS };
+    const r = resultatSchema.parse(migrerResultat(ancien));
+    assert.deepEqual(r, { type: 'qualif', races: [IDS] });
+  });
+
+  it('laisse les autres résultats tels quels', () => {
+    const race = { type: 'race', ordre: IDS };
+    assert.equal(migrerResultat(race), race);
+  });
+});
+
+describe('validation des qualifs', () => {
+  it('refuse une Race incomplète', () => {
+    const r: Resultat = { type: 'qualif', races: [IDS, IDS.slice(0, 7)] };
+    assert.match(validerResultat(AVANT_DRAFT, [], r) ?? '', /Race 2/);
+  });
+
+  it('refuse un joker en qualifs', () => {
+    const r: Resultat = { type: 'qualif', races: [IDS], jokers: ['jo'] };
+    assert.match(validerResultat(AVANT_DRAFT, [], r) ?? '', /joker/);
+  });
+
+  it('accepte 1 à 3 Races complètes', () => {
+    assert.equal(validerResultat(AVANT_DRAFT, [], { type: 'qualif', races: [IDS] }), null);
+  });
+});
+
+describe('saisie : Ennemi public n°1', () => {
+  const ep = {
+    numero: 1,
+    bloc: 'Test',
+    trace: 'T',
+    finale: false,
+    type: 'ep',
+    cops: 'rouge',
+  } as const;
+  const t: Tournoi = { joueurs: JOUEURS_DEMO, manches: [ep] };
+
+  it('accepte un ennemi public de l’équipe des racers', () => {
+    assert.equal(
+      validerResultat(t, [], {
+        type: 'ep',
+        vip: 'max',
+        echappe: false,
+        bustVipPar: 'jo',
+        busts: { jo: 1 },
+      }),
+      null,
+    );
+  });
+
+  it('refuse un ennemi public dans l’équipe des cops, ou arrêté par un racer', () => {
+    assert.ok(validerResultat(t, [], { type: 'ep', vip: 'jo', echappe: true, busts: {} }));
+    assert.ok(
+      validerResultat(t, [], {
+        type: 'ep',
+        vip: 'max',
+        echappe: false,
+        bustVipPar: 'seb',
+        busts: {},
+      }),
+    );
   });
 });

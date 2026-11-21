@@ -18,7 +18,12 @@ export const JOUEURS_DEMO: readonly Joueur[] = [
 ];
 
 export const RESULTATS_DEMO: readonly Resultat[] = [
-  { type: 'qualif', ordre: ['max', 'jo', 'seb', 'ben', 'kev', 'fred', 'oli', 'alex'] },
+  // Une seule Race de qualif : chaque Race rapporte le barème 8 à 1, donc une
+  // seule Race redonne exactement les points de la maquette.
+  {
+    type: 'qualif',
+    races: [['max', 'jo', 'seb', 'ben', 'kev', 'fred', 'oli', 'alex']],
+  },
   { type: 'race', ordre: ['jo', 'max', 'ben', 'seb', 'fred', 'kev', 'alex', 'oli'] },
   {
     type: 'race',

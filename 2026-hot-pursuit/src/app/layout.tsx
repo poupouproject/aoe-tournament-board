@@ -22,7 +22,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="fr">
+    // Des extensions (LastPass…) ajoutent des attributs à <html> avant React.
+    <html lang="fr" suppressHydrationWarning>
       <body className="min-h-dvh antialiased">{children}</body>
     </html>
   );

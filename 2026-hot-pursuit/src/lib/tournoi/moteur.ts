@@ -50,10 +50,45 @@ export function pairesDeRivaux(joueurs: readonly Joueur[]): [string, string][] {
     .map((j) => [j.id, j.rivalId ?? '']);
 }
 
+/**
+ * Équipes inégales (7 joueurs) : facteur qui ramène la plus petite équipe à
+ * la taille de l'autre (4/3 pour une équipe de 3 contre 4). 1 sinon.
+ */
+export function facteurEquipe(joueurs: readonly Joueur[], equipe: Equipe): number {
+  const taille = (e: Equipe): number => joueurs.filter((j) => j.equipe === e).length;
+  const t = taille(equipe);
+  const plusGrande = Math.max(taille('rouge'), taille('bleu'));
+  return t > 0 && t < plusGrande ? plusGrande / t : 1;
+}
+
 /** Classement : points, puis victoires face-à-face, puis id. */
 export function classement(etats: ReadonlyMap<string, EtatJoueur>): EtatJoueur[] {
   return [...etats.values()].sort(
     (a, b) => b.points - a.points || b.faceAFace - a.faceAFace || a.id.localeCompare(b.id),
+  );
+}
+
+/**
+ * Classement cumulé des qualifs : la plus petite somme des positions passe en
+ * tête ; à égalité, la meilleure position à la dernière Race jouée, puis l'id.
+ */
+export function classementQualif(races: readonly (readonly string[])[]): string[] {
+  const somme = new Map<string, number>();
+  for (const race of races) {
+    race.forEach((id, rang) => {
+      somme.set(id, (somme.get(id) ?? 0) + rang + 1);
+    });
+  }
+  const derniere = races[races.length - 1] ?? [];
+  const rangFinal = (id: string): number => {
+    const rang = derniere.indexOf(id);
+    return rang < 0 ? Infinity : rang;
+  };
+  return [...somme.keys()].sort(
+    (a, b) =>
+      (somme.get(a) ?? 0) - (somme.get(b) ?? 0) ||
+      rangFinal(a) - rangFinal(b) ||
+      a.localeCompare(b),
   );
 }
 
@@ -107,10 +142,14 @@ export function calculer(
 
     switch (resultat.type) {
       case 'qualif': {
-        resultat.ordre.forEach((id, rang) => {
-          gagner(id, BAREME.qualif[rang] ?? 0);
-        });
-        const premier = resultat.ordre[0];
+        // Le barème s'applique à chaque Race, et les points s'additionnent.
+        for (const race of resultat.races) {
+          race.forEach((id, rang) => {
+            gagner(id, BAREME.qualif[rang] ?? 0);
+          });
+        }
+        const ordre = classementQualif(resultat.races);
+        const premier = ordre[0];
         if (premier) messages.push(`${nom(premier)} remporte les qualifications`);
         break;
       }
@@ -147,7 +186,11 @@ export function calculer(
         }
         const busts = Object.entries(resultat.busts);
         for (const [id, nombre] of busts) gagner(id, BAREME.hpBust * nombre);
-        gainsEquipe[resultat.gagnant === 'cops' ? cops : racers] += BAREME.hpEquipeGagnante;
+        // Le camp gagnant prend +10, ×4/3 (arrondi : +13) si c'est l'équipe de 3.
+        const camp = resultat.gagnant === 'cops' ? cops : racers;
+        gainsEquipe[camp] += Math.round(
+          BAREME.hpEquipeGagnante * facteurEquipe(tournoi.joueurs, camp),
+        );
         messages.push(
           resultat.gagnant === 'cops'
             ? `Les cops ${NOMS_EQUIPES[cops]} arrêtent tout le monde sur « ${manche.trace} »`
@@ -160,6 +203,40 @@ export function calculer(
             `${nom(id)} : ${String(nombre)} bust${nombre > 1 ? 's' : ''} (+${String(BAREME.hpBust * nombre)})`,
           );
         }
+        break;
+      }
+
+      case 'ep': {
+        if (manche.type !== 'ep') break;
+        const cops = manche.cops;
+        const racers = adversaire(cops);
+        for (const [id, nombre] of Object.entries(resultat.busts)) {
+          gagner(id, BAREME.hpBust * nombre);
+        }
+        let camp: Equipe;
+        if (resultat.echappe) {
+          camp = racers;
+          gagner(resultat.vip, BAREME.epVipEchappe);
+          for (const j of tournoi.joueurs) {
+            if (j.equipe === racers && j.id !== resultat.vip) gagner(j.id, BAREME.epEscorte);
+          }
+          messages.push(
+            `${nom(resultat.vip)}, ennemi public n°1, s'échappe sur « ${manche.trace} »`,
+          );
+        } else {
+          camp = cops;
+          if (resultat.bustVipPar) {
+            gagner(resultat.bustVipPar, BAREME.epBustVip);
+            messages.push(
+              `${nom(resultat.bustVipPar)} arrête l'ennemi public n°1, ${nom(resultat.vip)}`,
+            );
+          } else {
+            messages.push(`L'ennemi public n°1, ${nom(resultat.vip)}, est arrêté`);
+          }
+        }
+        gainsEquipe[camp] += Math.round(
+          BAREME.hpEquipeGagnante * facteurEquipe(tournoi.joueurs, camp),
+        );
         break;
       }
 
@@ -189,6 +266,18 @@ export function calculer(
       }
     }
 
+    // Racers : +2 par cop éliminé, en Hot Pursuit comme en Ennemi public.
+    if (resultat.type === 'hp' || resultat.type === 'ep') {
+      for (const [id, nombre] of Object.entries(resultat.accidents ?? {})) {
+        if (nombre > 0) {
+          gagner(id, BAREME.accident * nombre);
+          messages.push(
+            `${nom(id)} élimine ${String(nombre)} cop${nombre > 1 ? 's' : ''} (+${String(BAREME.accident * nombre)})`,
+          );
+        }
+      }
+    }
+
     for (const id of resultat.jokers ?? []) {
       const e = etat(id);
       if (!manche.finale && !e.jokerUtilise) {
@@ -199,9 +288,14 @@ export function calculer(
     }
 
     // Race : le score d'équipe est la somme des gains individuels, joker compris.
+    // Équipes inégales (7 joueurs) : la plus petite est ramenée à la taille de
+    // l'autre (somme × 4/3, arrondie), sinon elle perdrait d'office.
     if (resultat.type === 'race') {
       for (const j of tournoi.joueurs) {
         if (j.equipe) gainsEquipe[j.equipe] += gains.get(j.id) ?? 0;
+      }
+      for (const e of ['rouge', 'bleu'] satisfies Equipe[]) {
+        gainsEquipe[e] = Math.round(gainsEquipe[e] * facteurEquipe(tournoi.joueurs, e));
       }
     }
 
